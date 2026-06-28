@@ -1,0 +1,124 @@
+# EDA Buddy Runtime Config — AXI-Stream Master VIP TB
+runtime:
+  common_args:
+  - +UVM_VERBOSITY=UVM_MEDIUM
+  - +UVM_MAX_QUIT_COUNT=10
+  - +UVM_TIMEOUT=100000000
+  tool_args:
+    vcs:
+    - -l simv.log
+    questa:
+    - -batch
+    - -do 'run -all; quit'
+  debug:
+    gui_mode: false
+    dump_waves: true
+    wave_format: fsdb
+    quiet_sim: true
+test_config:
+  active_test: axi_stream_master_vip_tc_mst_001_test
+  entry_points:
+  - {name: axi_stream_master_vip_tc_mst_001_test, description: 'TVALID Stability single-beat no stall', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_002_test, description: 'TVALID Stability multi-beat extended stall', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_003_test, description: 'TVALID Stability 20 back-to-back single beats', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_004_test, description: 'TVALID early deassert violation (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_005_test, description: 'Pre-TVALID TREADY pre-asserted handshake', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_006_test, description: 'TREADY toggles around TVALID window', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_007_test, description: 'Simultaneous TVALID/TREADY assertion', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_008_test, description: 'TREADY deasserts during multi-beat packet', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_009_test, description: 'Zero-stall 100 packets max throughput', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_010_test, description: 'Zero-stall max packet length 256 beats', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_011_test, description: 'Alternating stall no-stall packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_012_test, description: 'Zero-stall fully random packet lengths', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_013_test, description: 'TLAST single-beat packet TLAST=1 on beat 1', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_014_test, description: 'TLAST 128-beat packet TLAST only on final', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_015_test, description: 'TLAST back-to-back 16-beat packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_016_test, description: 'TLAST odd-numbered beats 3 7 11 13', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_017_test, description: 'Null termination isolated null-term packet', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_018_test, description: 'Null term after data packet', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_019_test, description: 'Back-to-back null-term packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_020_test, description: 'Null term across multiple TID values', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_021_test, description: 'TKEEP all bytes valid TKEEP=1111', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_022_test, description: 'TKEEP sparse patterns 0101 1010', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_023_test, description: 'TKEEP position bytes TKEEP=1 TSTRB=0', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_024_test, description: 'Reserved TSTRB TKEEP violation (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_025_test, description: 'TSTRB all data bytes TKEEP=1 TSTRB=1', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_026_test, description: 'TSTRB position bytes only TKEEP=1 TSTRB=0', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_027_test, description: 'TSTRB mixed data and position bytes', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_028_test, description: 'TSTRB walk all valid qualifier combinations', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_029_test, description: 'TID change mid-packet violation (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_030_test, description: 'TID 2 interleaved streams TID=0 and TID=1', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_031_test, description: 'TID 4 interleaved streams TID=0..3', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_032_test, description: 'TID max value TID=0xFF', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_033_test, description: 'Continuous pkts all beats TKEEP=1111', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_034_test, description: 'Continuous pkts same TID across all packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_035_test, description: 'Continuous pkts TID change while TLAST=0 (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_036_test, description: 'Continuous pkts null byte TKEEP=0 violation (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_037_test, description: 'Reset first packet after ARESETn deassert', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_038_test, description: 'Reset multiple packets across reset event', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_039_test, description: 'Reset first packet must wait 1 cycle after ARESETn', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_040_test, description: 'Reset stress test 50 packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_041_test, description: 'TWAKEUP 1-cycle lead before TVALID', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_042_test, description: 'TWAKEUP deassert after last transfer', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_043_test, description: 'TWAKEUP held HIGH across consecutive packets', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_044_test, description: 'TWAKEUP parity TWAKEUPCHK=~TWAKEUP throughout', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_045_test, description: 'AXI5 parity TDATACHK fault injection byte 0 (negative)', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_046_test, description: 'AXI5 parity all correct 100-packet stream', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_047_test, description: 'AXI5 parity TREADYCHK=~TREADY per cycle', seed: random, user_args: []}
+  - {name: axi_stream_master_vip_tc_mst_048_test, description: 'AXI5 parity full regression 200 random pkts', seed: random, user_args: []}
+hooks:
+  pre:  ""
+  post: ""
+groups:
+  smoke_test:
+    regression_post_hook: "python /cygdrive/d/Verification/VERIFICATION_PLANNER/eda_buddy/scripts/push_result.py --id AXI_MASTER_SMOKE_REGRESSION --total {total} --passed {passed} --failed {failed}"
+    tests:
+    - axi_stream_master_vip_tc_mst_001_test
+    - axi_stream_master_vip_tc_mst_005_test
+    - axi_stream_master_vip_tc_mst_009_test
+    - axi_stream_master_vip_tc_mst_013_test
+    - axi_stream_master_vip_tc_mst_017_test
+    - axi_stream_master_vip_tc_mst_021_test
+    - axi_stream_master_vip_tc_mst_037_test
+    - axi_stream_master_vip_tc_mst_041_test
+    - axi_stream_master_vip_tc_mst_046_test
+  regression:
+    regression_post_hook: "python /cygdrive/d/Verification/VERIFICATION_PLANNER/eda_buddy/scripts/push_result.py --id AXI_MASTER_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}"
+    tests:
+    - axi_stream_master_vip_tc_mst_001_test
+    - axi_stream_master_vip_tc_mst_002_test
+    - axi_stream_master_vip_tc_mst_003_test
+    - axi_stream_master_vip_tc_mst_005_test
+    - axi_stream_master_vip_tc_mst_007_test
+    - axi_stream_master_vip_tc_mst_009_test
+    - axi_stream_master_vip_tc_mst_010_test
+    - axi_stream_master_vip_tc_mst_011_test
+    - axi_stream_master_vip_tc_mst_012_test
+    - axi_stream_master_vip_tc_mst_013_test
+    - axi_stream_master_vip_tc_mst_014_test
+    - axi_stream_master_vip_tc_mst_015_test
+    - axi_stream_master_vip_tc_mst_016_test
+    - axi_stream_master_vip_tc_mst_017_test
+    - axi_stream_master_vip_tc_mst_018_test
+    - axi_stream_master_vip_tc_mst_019_test
+    - axi_stream_master_vip_tc_mst_021_test
+    - axi_stream_master_vip_tc_mst_022_test
+    - axi_stream_master_vip_tc_mst_023_test
+    - axi_stream_master_vip_tc_mst_025_test
+    - axi_stream_master_vip_tc_mst_026_test
+    - axi_stream_master_vip_tc_mst_027_test
+    - axi_stream_master_vip_tc_mst_030_test
+    - axi_stream_master_vip_tc_mst_031_test
+    - axi_stream_master_vip_tc_mst_032_test
+    - axi_stream_master_vip_tc_mst_033_test
+    - axi_stream_master_vip_tc_mst_034_test
+    - axi_stream_master_vip_tc_mst_037_test
+    - axi_stream_master_vip_tc_mst_039_test
+    - axi_stream_master_vip_tc_mst_040_test
+    - axi_stream_master_vip_tc_mst_041_test
+    - axi_stream_master_vip_tc_mst_042_test
+    - axi_stream_master_vip_tc_mst_043_test
+    - axi_stream_master_vip_tc_mst_044_test
+    - axi_stream_master_vip_tc_mst_046_test
+    - axi_stream_master_vip_tc_mst_047_test
+    - axi_stream_master_vip_tc_mst_048_test

@@ -1,0 +1,17 @@
+# QuestaSim / VCS / Xcelium build artifacts
+work/
+db_opt/
+*.qdb
+*.qpg
+*.qtl
+*.tfdb
+*.log
+_vmake
+_info
+
+# Simulator run outputs
+sim/work/
+
+# Python cache
+__pycache__/
+*.pyc
