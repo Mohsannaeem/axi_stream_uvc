@@ -1,0 +1,32 @@
+# EDA Buddy Runtime Config (Auto-Generated)
+runtime:
+  common_args:
+  - +UVM_VERBOSITY=UVM_MEDIUM
+  - +UVM_MAX_QUIT_COUNT=10
+  - +UVM_TIMEOUT=100000000
+  tool_args:
+    vcs:
+    - -l simv.log
+    questa:
+    - -batch
+    - -do 'run -all; quit'
+  debug:
+    gui_mode: false
+    dump_waves: true
+    wave_format: fsdb
+    quiet_sim: false
+test_config:
+  active_test: axi_stream_fifo_base_test
+  entry_points:
+  - name: axi_stream_fifo_base_test
+    description: Master->FIFO->Slave end-to-end data path with scoreboard
+    seed: random
+    user_args: []
+groups:
+  smoke_test:
+  - axi_stream_fifo_base_test
+  regression:
+  - axi_stream_fifo_base_test
+hooks:
+  pre: ''
+  post: ''

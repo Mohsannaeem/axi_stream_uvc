@@ -26,11 +26,9 @@ compilation:
     modules:
     - top/axi_stream_slave_vip_tb_top.sv
     dut: []
-# Hooks run before/after the compile+elaborate job for this component only.
-# Leave blank to skip. Value is any shell command or path to a script.
 hooks:
-  pre:  ""
-  post: ""
+  pre: ''
+  post: ''
 tool_settings:
   vcs:
     compile_flags:
@@ -54,5 +52,5 @@ tool_settings:
     - vopt +acc ${project.top_module} -o db_opt
     coverage_flags:
     - -coverage
-    notes: "Do NOT pass uvm_pkg.sv as source — use QuestaSim built-in UVM 1.1d (avoids DPI runtime GCC requirement)"
-
+    notes: "Do NOT pass uvm_pkg.sv as source \xE2\u20AC\u201D use QuestaSim built-in\
+      \ UVM 1.1d (avoids DPI runtime GCC requirement)"

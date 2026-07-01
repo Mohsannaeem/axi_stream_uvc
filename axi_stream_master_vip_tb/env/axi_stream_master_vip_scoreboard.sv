@@ -12,8 +12,8 @@ class axi_stream_master_vip_scoreboard extends uvm_scoreboard;
   int error_count            = 0;
 
   // Packet boundary tracking
-  logic [`TID_WIDTH-1:0]   current_tid;
-  logic [`TDEST_WIDTH-1:0] current_tdest;
+  logic [AXI_ID_W-1:0]   current_tid;
+  logic [AXI_DEST_W-1:0] current_tdest;
   bit   in_packet            = 0;
   int   beats_in_pkt         = 0;
 
@@ -53,7 +53,7 @@ class axi_stream_master_vip_scoreboard extends uvm_scoreboard;
     end
 
     // TSTRB/TKEEP compliance
-    for (int i = 0; i < `TSTRB_WIDTH; i++) begin
+    for (int i = 0; i < AXI_STRB_W; i++) begin
       if (item.tstrb[i] === 1'b1 && item.tkeep[i] !== 1'b1) begin
         `uvm_error("SB", $sformatf(
           "SB_QUALIFIER_VIOLATION: TSTRB[%0d]=1 with TKEEP[%0d]=0 (reserved)", i, i))
@@ -68,7 +68,7 @@ class axi_stream_master_vip_scoreboard extends uvm_scoreboard;
     // Packet boundary
     if (item.tlast === 1'b1) begin
       total_pkts_received++;
-      if (item.tkeep === {(`TSTRB_WIDTH){1'b0}}) begin
+      if (item.tkeep === {(AXI_STRB_W){1'b0}}) begin
         null_term_pkts++;
         `uvm_info("SB", $sformatf(
           "[SB] PKT#%0d: NULL TERMINATION packet received (beats=%0d)",

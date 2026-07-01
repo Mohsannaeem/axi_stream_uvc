@@ -35,9 +35,9 @@ class axi_stream_master_vip_driver extends uvm_driver #(axi_stream_master_vip_se
     return ~w;
   endfunction
 
-  function automatic logic [`TSTRB_WIDTH-1:0] compute_datachk(logic [`TDATA_WIDTH-1:0] d);
-    logic [`TSTRB_WIDTH-1:0] chk;
-    for (int i = 0; i < `TSTRB_WIDTH; i++)
+  function automatic logic [AXI_STRB_W-1:0] compute_datachk(logic [AXI_DATA_W-1:0] d);
+    logic [AXI_STRB_W-1:0] chk;
+    for (int i = 0; i < AXI_STRB_W; i++)
       chk[i] = ~^d[8*i +: 8];  // ~(XOR reduction) = odd parity per byte
     return chk;
   endfunction
@@ -45,14 +45,14 @@ class axi_stream_master_vip_driver extends uvm_driver #(axi_stream_master_vip_se
   // ── Drive all parity signals for current cycle ────────────────────────────────
   task drive_parity(
     logic tvalid_val,
-    logic [`TDATA_WIDTH-1:0] tdata_val,
+    logic [AXI_DATA_W-1:0] tdata_val,
     logic tlast_val,
     logic twakeup_val,
     bit inject_err, int err_byte_idx
   );
-    logic [`TSTRB_WIDTH-1:0] dchk;
+    logic [AXI_STRB_W-1:0] dchk;
     dchk = compute_datachk(tdata_val);
-    if (inject_err && err_byte_idx < `TSTRB_WIDTH)
+    if (inject_err && err_byte_idx < AXI_STRB_W)
       dchk[err_byte_idx] = ~dchk[err_byte_idx];  // flip one parity bit
 
     vif.cb_drv.TVALIDCHK  <= compute_valid_chk(tvalid_val);
@@ -112,9 +112,9 @@ class axi_stream_master_vip_driver extends uvm_driver #(axi_stream_master_vip_se
 
   // ── Drive a complete packet (all beats, TLAST on final beat) ─────────────────
   task drive_packet(axi_stream_master_vip_seq_item item);
-    logic [`TDATA_WIDTH-1:0]  beat_tdata;
-    logic [`TSTRB_WIDTH-1:0]  beat_tstrb, beat_tkeep;
-    logic [`TID_WIDTH-1:0]    beat_tid;
+    logic [AXI_DATA_W-1:0]  beat_tdata;
+    logic [AXI_STRB_W-1:0]  beat_tstrb, beat_tkeep;
+    logic [AXI_ID_W-1:0]    beat_tid;
     logic                     beat_tlast;
     logic                     current_twakeup = 1'b0;
     int   watchdog_cnt;

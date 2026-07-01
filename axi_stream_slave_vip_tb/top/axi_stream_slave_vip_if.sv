@@ -1,25 +1,30 @@
 // AXI-Stream Slave VIP Interface
 // Verification Role: SLAVE — VIP drives TREADY + TREADYCHK
 // DUT Role:          MASTER — DUT drives all payload + check signals
-`include "axi_stream_slave_vip_defines.sv"
+`ifndef AXI_STREAM_SLAVE_VIP_IF_SV
+`define AXI_STREAM_SLAVE_VIP_IF_SV
 
-interface axi_stream_slave_vip_if (input bit ACLK);
-
-  // ── Reset (plain logic — tb_top drives it; not a port to avoid multi-driver) ──
-  logic ARESETn;
+interface axi_stream_slave_vip_if #(
+  parameter int DATA_W  = 32,
+  parameter int ID_W    = 8,
+  parameter int DEST_W  = 4,
+  parameter int USER_W  = 4,
+  parameter bit HAS_PAR = 1,
+  parameter bit HAS_WAKE= 1
+)(input logic ACLK, input logic ARESETn);
 
   // ── DUT Master outputs (inputs to VIP) ──────────────────────────────────────
   logic                       TVALID;
-  logic [`TDATA_WIDTH-1:0]    TDATA;
-  logic [`TDATA_WIDTH/8-1:0]  TKEEP;
-  logic [`TDATA_WIDTH/8-1:0]  TSTRB;
+  logic [DATA_W-1:0]          TDATA;
+  logic [DATA_W/8-1:0]        TKEEP;
+  logic [DATA_W/8-1:0]        TSTRB;
   logic                       TLAST;
-  logic [`TID_WIDTH-1:0]      TID;
-  logic [`TDEST_WIDTH-1:0]    TDEST;
-  logic [`TUSER_WIDTH-1:0]    TUSER;
+  logic [ID_W-1:0]            TID;
+  logic [DEST_W-1:0]          TDEST;
+  logic [USER_W-1:0]          TUSER;
   logic                       TWAKEUP;
   // AXI5 check signals driven by DUT Master
-  logic [`TDATA_WIDTH/8-1:0]  TDATACHK;
+  logic [DATA_W/8-1:0]        TDATACHK;
   logic                       TVALIDCHK;
   logic                       TLASTCHK;
   logic                       TWAKEUPCHK;
@@ -43,3 +48,5 @@ interface axi_stream_slave_vip_if (input bit ACLK);
   endclocking
 
 endinterface
+
+`endif
