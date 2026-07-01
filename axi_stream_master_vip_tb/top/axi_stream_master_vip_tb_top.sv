@@ -2,11 +2,10 @@
 // Role: MASTER VIP (Transmitter) — DUT is SLAVE (Receiver)
 // Instantiates the DUT stub (passive slave), generates clock/reset, sets up VIF.
 `timescale 1ns/1ps
-`include "axi_stream_master_vip_defines.sv"
+import axi_stream_master_vip_pkg::*;
 
 import uvm_pkg::*;
 `include "uvm_macros.svh"
-import axi_stream_master_vip_pkg::*;
 
 module axi_stream_master_vip_tb_top;
 
@@ -14,7 +13,7 @@ module axi_stream_master_vip_tb_top;
   logic ACLK    = 1'b0;
   logic ARESETn = 1'b0;
 
-  always #(`CLK_PERIOD/2) ACLK = ~ACLK;
+  always #5 ACLK = ~ACLK;
 
   initial begin
     ARESETn = 1'b0;
@@ -80,16 +79,16 @@ module axi_stream_slave_dut_stub (
   input  logic                        ACLK,
   input  logic                        ARESETn,
   input  logic                        TVALID,
-  input  logic [`TDATA_WIDTH-1:0]     TDATA,
-  input  logic [`TSTRB_WIDTH-1:0]     TSTRB,
-  input  logic [`TSTRB_WIDTH-1:0]     TKEEP,
+  input  logic [31:0]                 TDATA,
+  input  logic [3:0]                  TSTRB,
+  input  logic [3:0]                  TKEEP,
   input  logic                        TLAST,
-  input  logic [`TID_WIDTH-1:0]       TID,
-  input  logic [`TDEST_WIDTH-1:0]     TDEST,
-  input  logic [`TUSER_WIDTH-1:0]     TUSER,
+  input  logic [7:0]                  TID,
+  input  logic [3:0]                  TDEST,
+  input  logic [3:0]                  TUSER,
   input  logic                        TWAKEUP,
   input  logic                        TVALIDCHK,
-  input  logic [`TSTRB_WIDTH-1:0]     TDATACHK,
+  input  logic [3:0]                  TDATACHK,
   input  logic                        TLASTCHK,
   input  logic                        TWAKEUPCHK,
   output logic                        TREADY,
@@ -110,7 +109,7 @@ module axi_stream_slave_dut_stub (
         ready_reg <= 1'b1;  // assert TREADY
         if (TVALID && ready_reg) begin
           // Handshake completed — pick new random stall
-          stall_max = $urandom_range(0, `TREADY_STALL_MAX);
+          stall_max = $urandom_range(0, 100);
           stall_cnt = stall_max;
           if (stall_max > 0) ready_reg <= 1'b0;
         end

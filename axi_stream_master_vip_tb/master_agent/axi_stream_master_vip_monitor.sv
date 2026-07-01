@@ -10,13 +10,13 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
   uvm_analysis_port #(axi_stream_master_vip_seq_item) ap;
 
   // ── Payload snapshot (captured on first TVALID=1 per beat) ───────────────────
-  logic [`TDATA_WIDTH-1:0]   snap_tdata;
-  logic [`TSTRB_WIDTH-1:0]   snap_tkeep, snap_tstrb;
-  logic                      snap_tlast;
-  logic [`TID_WIDTH-1:0]     snap_tid;
-  logic [`TDEST_WIDTH-1:0]   snap_tdest;
-  logic [`TUSER_WIDTH-1:0]   snap_tuser;
-  bit                        snap_valid = 0;
+  logic [AXI_DATA_W-1:0]   snap_tdata;
+  logic [AXI_STRB_W-1:0]   snap_tkeep, snap_tstrb;
+  logic                     snap_tlast;
+  logic [AXI_ID_W-1:0]     snap_tid;
+  logic [AXI_DEST_W-1:0]   snap_tdest;
+  logic [AXI_USER_W-1:0]   snap_tuser;
+  bit                       snap_valid = 0;
 
   // ── Coverage tracking variables ───────────────────────────────────────────────
   int  tready_stall_depth       = 0;  // cycles TVALID=1, TREADY=0
@@ -185,7 +185,7 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
 
   // Cross-cutting: data bus width
   covergroup cg_data_bus_width;
-    cp_width: coverpoint `TDATA_WIDTH {
+    cp_width: coverpoint AXI_DATA_W {
       bins w32  = {32};
       bins w64  = {64};
       bins w128 = {128};
@@ -242,16 +242,16 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
     return ~^b;
   endfunction
 
-  function automatic logic [`TSTRB_WIDTH-1:0] compute_tdatachk(logic [`TDATA_WIDTH-1:0] d);
-    logic [`TSTRB_WIDTH-1:0] chk;
-    for (int i = 0; i < `TSTRB_WIDTH; i++)
+  function automatic logic [AXI_STRB_W-1:0] compute_tdatachk(logic [AXI_DATA_W-1:0] d);
+    logic [AXI_STRB_W-1:0] chk;
+    for (int i = 0; i < AXI_STRB_W; i++)
       chk[i] = byte_odd_parity(d[8*i +: 8]);
     return chk;
   endfunction
 
   // ── Parity verification ────────────────────────────────────────────────────────
   task verify_parity_signals();
-    logic [`TSTRB_WIDTH-1:0] exp_datachk;
+    logic [AXI_STRB_W-1:0] exp_datachk;
     logic exp_validchk, exp_lastchk, exp_wakeupchk, exp_readychk;
 
     exp_validchk  = ~vif.cb_mon.TVALID;
@@ -385,7 +385,7 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
         end
 
         // TSTRB/TKEEP reserved combination check (per-bit)
-        for (int i = 0; i < `TSTRB_WIDTH; i++) begin
+        for (int i = 0; i < AXI_STRB_W; i++) begin
           if (vif.cb_mon.TKEEP[i] === 1'b0 && vif.cb_mon.TSTRB[i] === 1'b1)
             `uvm_fatal("MON_QUAL", $sformatf(
               "RESERVED_QUALIFIER: TKEEP[%0d]=0 with TSTRB[%0d]=1 (Table 2-3 violation)", i, i))
@@ -397,7 +397,7 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
             `uvm_error("MON_CONT", "CONTINUOUS_PKT_TID_CHANGE_VIOLATION: TID changed while TLAST=0!")
             continuous_pkt_viol = 1;
           end
-          if (vif.cb_mon.TKEEP !== {(`TSTRB_WIDTH){1'b1}}) begin
+          if (vif.cb_mon.TKEEP !== {(AXI_STRB_W){1'b1}}) begin
             `uvm_error("MON_CONT", "CONTINUOUS_PKTS_NULL_BYTE_VIOLATION: TKEEP not all-1 while TLAST=0!")
             continuous_pkt_viol = 2;
           end
@@ -459,7 +459,7 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
           pkt_back_to_back = !prev_tlast;
 
           // Null packet check (all TKEEP=0)
-          if (vif.cb_mon.TKEEP === {(`TSTRB_WIDTH){1'b0}}) begin
+          if (vif.cb_mon.TKEEP === {(AXI_STRB_W){1'b0}}) begin
             null_count++;
             null_pkt_ctx = (prev_pkt_was_null) ? 3 : (pkt_beat_count == 1 ? 0 : 1);
             prev_pkt_was_null = 1;
@@ -478,13 +478,13 @@ class axi_stream_master_vip_monitor extends uvm_monitor;
           if (cfg.enable_tracker)
             $fwrite(tracker_fd, "PKT#%0d: beats=%0d null=%0b TID=0x%0h TDEST=0x%0h stall_max=%0d\n",
                     pkt_count, pkt_beat_count,
-                    (vif.cb_mon.TKEEP === {(`TSTRB_WIDTH){1'b0}}),
+                    (vif.cb_mon.TKEEP === {(AXI_STRB_W){1'b0}}),
                     vif.cb_mon.TID, vif.cb_mon.TDEST, tready_stall_depth);
 
           `uvm_info("MON", $sformatf(
             "[MON] PKT#%0d COMPLETE | beats=%0d null_term=%0b TID=0x%0h B2B=%0b",
             pkt_count, pkt_beat_count,
-            (vif.cb_mon.TKEEP === {(`TSTRB_WIDTH){1'b0}}),
+            (vif.cb_mon.TKEEP === {(AXI_STRB_W){1'b0}}),
             vif.cb_mon.TID, pkt_back_to_back), UVM_MEDIUM)
 
           pkt_beat_count  = 0;

@@ -38,7 +38,7 @@ class axi_stream_slave_vip_scoreboard extends uvm_scoreboard;
     total_beats++;
 
     // ── Null packet detection ────────────────────────────────────────────────
-    if (item.tlast === 1'b1 && item.tkeep === {(`TDATA_WIDTH/8){1'b0}}) begin
+    if (item.tlast === 1'b1 && item.tkeep === {(AXI_DATA_W/8){1'b0}}) begin
       null_pkts++;
       if (!stream_null_count.exists(key)) stream_null_count[key] = 0;
       stream_null_count[key]++;
