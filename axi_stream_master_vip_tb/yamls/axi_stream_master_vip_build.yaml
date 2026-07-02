@@ -6,9 +6,6 @@ project:
   uvm_version: '1.2'
 paths:
   root_dir: D:/Verification/VERIFICATION_PLANNER/Output/axi_stream_master_vip_tb
-  work_dir: ./work
-  log_dir: ./logs
-  cov_dir: ./coverage
 compilation:
   include_dirs:
   - env
@@ -26,9 +23,8 @@ compilation:
     modules:
     - top/axi_stream_master_vip_tb_top.sv
     dut: []
-hooks:
-  pre: ''
-  post: ''
+dependencies:
+  build: []
 tool_settings:
   vcs:
     compile_flags:
@@ -52,7 +48,6 @@ tool_settings:
     - vopt +acc ${project.top_module} -o db_opt
     coverage_flags:
     - -coverage
-    notes: "Do NOT pass uvm_pkg.sv as source \xE2\u20AC\u201D use QuestaSim built-in\
-      \ UVM 1.1d (avoids DPI runtime GCC requirement)"
-dependencies:
-  build: []
+hooks:
+  pre: ''
+  post: ''
