@@ -76,6 +76,7 @@ class axi_stream_slv_vip_tc_006_seq extends axi_stream_slave_vip_base_seq;
     axi_stream_slave_vip_seq_item it;
     it = axi_stream_slave_vip_seq_item::type_id::create("it");
     start_item(it);
+    it.c_no_drop.constraint_mode(0);  // allow inject_tvalid_drop=1 for negative TC
     if (!it.randomize() with {
           tready_stall_cycles == 16;
           inject_tvalid_drop  == 1; })
@@ -360,8 +361,9 @@ class axi_stream_slv_vip_tc_038_seq extends axi_stream_slave_vip_base_seq;
     axi_stream_slave_vip_seq_item it;
     it = axi_stream_slave_vip_seq_item::type_id::create("it");
     start_item(it);
+    it.c_no_fault.constraint_mode(0);  // allow inject_parity_fault_lane=1 for negative TC
     if (!it.randomize() with {
-          tready_stall_cycles    == 0;
+          tready_stall_cycles      == 0;
           inject_parity_fault_lane == 1; })
       `uvm_fatal("SEQ","Rand fail")
     finish_item(it);

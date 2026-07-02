@@ -1,0 +1,75 @@
+# EDA Buddy Build Manifest — axi_stream_fifo TB
+# VIP sources are pulled in via dependencies.build; only FIFO-local files are listed here.
+project:
+  name: axi_stream_fifo
+  top_module: axi_stream_fifo_tb_top
+  timescale: 1ns/1ps
+  uvm_version: '1.2'
+
+paths:
+  root_dir: D:/Verification/VERIFICATION_PLANNER/Output/axi_stream_fifo
+
+# External build YAMLs whose interfaces+packages must be compiled before this
+# component's own sources.  makefile_gen._generate_filelist() resolves these
+# and prepends them (incdir + interfaces + packages only) to axi_stream_fifo.f.
+dependencies:
+  build:
+  - D:/Verification/VERIFICATION_PLANNER/Output/axi_stream_master_vip_tb/yamls/axi_stream_master_vip_build.yaml
+  - D:/Verification/VERIFICATION_PLANNER/Output/axi_stream_slave_vip_tb/yamls/axi_stream_slave_vip_build.yaml
+
+compilation:
+  include_dirs:
+  # FIFO TB class include dirs (relative to root_dir = paths.root_dir above)
+  - top
+  - env
+  - sequences
+  - tests
+  defines:
+  - AXI_STREAM_FIFO_INTERFACE_V1_0
+  - UVM_NO_DEPRECATED
+  sources:
+    interfaces: []
+    packages:
+    - top/axi_stream_fifo_pkg.sv
+    modules:
+    - top/axi_stream_fifo_tb_top.sv
+    dut:
+    - C:/Xilinx/Vivado/2018.3/data/verilog/src/glbl.v
+
+tool_settings:
+  vcs:
+    compile_flags:
+    - -sverilog
+    - -full64
+    - -debug_access+all
+    - -lca
+    - -kdb
+    - +v2k
+    elaborate_flags:
+    - -top axi_stream_fifo_tb_top
+    coverage_flags:
+    - -cm line+cond+fsm+tgl+path
+  questa:
+    compile_flags:
+    - -sv
+    - -mfcu
+    - -timescale 1ns/1ps
+    - -suppress 3009
+    - "-L D:/Verification/questa_xillinx_ip_lib/axis_data_fifo_v2_0_0"
+    - "-L D:/Verification/questa_xillinx_ip_lib/unisim"
+    - "-L D:/Verification/questa_xillinx_ip_lib/axis_infrastructure_v1_1_0"
+    - "-L D:/Verification/questa_xillinx_ip_lib/xpm"
+    elaborate_flags:
+    - vopt +acc axi_stream_fifo_tb_top -o db_opt
+    - "-L D:/Verification/questa_xillinx_ip_lib/axis_data_fifo_v2_0_0"
+    - "-L D:/Verification/questa_xillinx_ip_lib/unisim"
+    - "-L D:/Verification/questa_xillinx_ip_lib/axis_infrastructure_v1_1_0"
+    - "-L D:/Verification/questa_xillinx_ip_lib/xpm"
+    - "work.glbl"
+    coverage_flags:
+    - -coverage
+    notes: "Do NOT pass uvm_pkg.sv as source — use QuestaSim built-in UVM 1.1d"
+
+hooks:
+  pre: ''
+  post: ''

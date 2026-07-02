@@ -4,13 +4,13 @@ class axi_stream_master_vip_seq_item extends uvm_sequence_item;
   `uvm_object_utils(axi_stream_master_vip_seq_item)
 
   // ── Stimulus fields (randomized per beat inside sequences) ───────────────────
-  rand logic [`TDATA_WIDTH-1:0]    tdata;
-  rand logic [`TSTRB_WIDTH-1:0]    tstrb;
-  rand logic [`TSTRB_WIDTH-1:0]    tkeep;
-  rand logic                        tlast;
-  rand logic [`TID_WIDTH-1:0]      tid;
-  rand logic [`TDEST_WIDTH-1:0]    tdest;
-  rand logic [`TUSER_WIDTH-1:0]    tuser;
+  rand logic [AXI_DATA_W-1:0]    tdata;
+  rand logic [AXI_STRB_W-1:0]    tstrb;
+  rand logic [AXI_STRB_W-1:0]    tkeep;
+  rand logic                      tlast;
+  rand logic [AXI_ID_W-1:0]      tid;
+  rand logic [AXI_DEST_W-1:0]    tdest;
+  rand logic [AXI_USER_W-1:0]    tuser;
 
   // ── Timing control ────────────────────────────────────────────────────────────
   rand int unsigned tready_delay;   // cycles to wait for TREADY (observed, not driven)
@@ -24,7 +24,7 @@ class axi_stream_master_vip_seq_item extends uvm_sequence_item;
   int parity_error_byte_idx     = 0;  // which byte's parity to corrupt
 
   // ── Default constraints ───────────────────────────────────────────────────────
-  constraint c_packet_length  { packet_length inside {1, [2:8], [9:64], [65:`MAX_PACKET_BEATS]}; }
+  constraint c_packet_length  { packet_length inside {1, [2:8], [9:64], [65:MAX_PACKET_BEATS]}; }
   constraint c_tready_delay   { tready_delay  inside {0, [1:5], [6:20], [21:100]}; }
   constraint c_tkeep_nonzero  {
     if (!drop_valid_early && !inject_invalid_tstrb_tkeep)
@@ -34,8 +34,8 @@ class axi_stream_master_vip_seq_item extends uvm_sequence_item;
     if (!inject_invalid_tstrb_tkeep)
       foreach (tstrb[i]) { tstrb[i] == 0 || tkeep[i] == 1; } // TSTRB=1 requires TKEEP=1
   }
-  constraint c_tid_range  { tid   < (1 << `TID_WIDTH);   }
-  constraint c_tdest_range{ tdest < (1 << `TDEST_WIDTH); }
+  constraint c_tid_range  { tid   < (1 << AXI_ID_W);   }
+  constraint c_tdest_range{ tdest < (1 << AXI_DEST_W); }
 
   function new(string name = "axi_stream_master_vip_seq_item");
     super.new(name);

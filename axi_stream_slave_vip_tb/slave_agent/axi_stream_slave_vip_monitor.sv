@@ -9,16 +9,16 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
   uvm_analysis_port #(axi_stream_slave_vip_seq_item) ap;
 
   // ── Payload snapshot (captured on first TVALID=1 of each pending transfer) ──
-  logic [`TDATA_WIDTH-1:0]   snap_tdata;
-  logic [`TDATA_WIDTH/8-1:0] snap_tkeep, snap_tstrb;
-  logic                      snap_tlast;
-  logic [`TID_WIDTH-1:0]     snap_tid;
-  logic [`TDEST_WIDTH-1:0]   snap_tdest;
-  logic [`TUSER_WIDTH-1:0]   snap_tuser;
-  bit                        snap_valid = 0;
+  logic [AXI_DATA_W-1:0]   snap_tdata;
+  logic [AXI_DATA_W/8-1:0] snap_tkeep, snap_tstrb;
+  logic                     snap_tlast;
+  logic [AXI_ID_W-1:0]     snap_tid;
+  logic [AXI_DEST_W-1:0]   snap_tdest;
+  logic [AXI_USER_W-1:0]   snap_tuser;
+  bit                       snap_valid = 0;
 
   // ── Per-stream ordering tracking ─────────────────────────────────────────────
-  int unsigned stream_beat_cnt [logic [(`TID_WIDTH+`TDEST_WIDTH-1):0]];
+  int unsigned stream_beat_cnt [logic [(AXI_ID_W+AXI_DEST_W-1):0]];
 
   // ── Coverage group tracking variables ────────────────────────────────────────
   int  tready_stall_depth        = 0;  // cycles TVALID=1, TREADY=0
@@ -228,9 +228,9 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
     return ~^b;
   endfunction
 
-  function automatic logic [`TDATA_WIDTH/8-1:0] compute_tdatachk(logic [`TDATA_WIDTH-1:0] d);
-    logic [`TDATA_WIDTH/8-1:0] chk;
-    for (int i = 0; i < `TDATA_WIDTH/8; i++)
+  function automatic logic [AXI_DATA_W/8-1:0] compute_tdatachk(logic [AXI_DATA_W-1:0] d);
+    logic [AXI_DATA_W/8-1:0] chk;
+    for (int i = 0; i < AXI_DATA_W/8; i++)
       chk[i] = byte_odd_parity(d[8*i +: 8]);
     return chk;
   endfunction
@@ -238,7 +238,7 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
   // ── Main run phase ────────────────────────────────────────────────────────────
   task run_phase(uvm_phase phase);
     axi_stream_slave_vip_seq_item item;
-    logic [`TDATA_WIDTH/8-1:0] exp_datachk;
+    logic [AXI_DATA_W/8-1:0] exp_datachk;
     logic exp_lastchk;
 
     // Open tracker file
@@ -303,7 +303,7 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
           twakeup_lead_cycles = 0;
 
         // ── Byte qualifier check (reserved TKEEP=0/TSTRB=1) ──────────────────
-        for (int i = 0; i < `TDATA_WIDTH/8; i++) begin
+        for (int i = 0; i < AXI_DATA_W/8; i++) begin
           if (vif.cb_mon.TKEEP[i] === 1'b0 && vif.cb_mon.TSTRB[i] === 1'b1)
             `uvm_fatal("MON_QUAL", $sformatf(
               "RESERVED_QUALIFIER_VIOLATION: TKEEP[%0d]=0, TSTRB[%0d]=1", i, i))
@@ -316,7 +316,7 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
             continuous_pkt_viol = 1;
           end
           // Null byte in mid-packet (TKEEP not all-1)
-          if (vif.cb_mon.TKEEP !== {(`TDATA_WIDTH/8){1'b1}}) begin
+          if (vif.cb_mon.TKEEP !== {(AXI_DATA_W/8){1'b1}}) begin
             `uvm_error("MON_CONT", "CONTINUOUS_PKTS_NULL_BYTE_VIOLATION: TKEEP not all-1 while TLAST=0!")
             continuous_pkt_viol = 2;
           end
@@ -371,7 +371,7 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
         if (vif.cb_mon.TLAST === 1'b1) begin
           pkt_count++;
           // Null packet check (all TKEEP=0)
-          if (vif.cb_mon.TKEEP === {(`TDATA_WIDTH/8){1'b0}}) begin
+          if (vif.cb_mon.TKEEP === {(AXI_DATA_W/8){1'b0}}) begin
             null_count++;
             null_pkt_ctx = (prev_pkt_was_null) ? 3 : (pkt_beat_count == 1 ? 0 : 1);
             prev_pkt_was_null = 1;
@@ -387,7 +387,7 @@ class axi_stream_slave_vip_monitor extends uvm_monitor;
           if (cfg.enable_tracker)
             $fwrite(tracker_fd, "PKT#%0d: beats=%0d null=%0b TID=0x%0h TDEST=0x%0h\n",
                     pkt_count, pkt_beat_count,
-                    (vif.cb_mon.TKEEP === {(`TDATA_WIDTH/8){1'b0}}),
+                    (vif.cb_mon.TKEEP === {(AXI_DATA_W/8){1'b0}}),
                     vif.cb_mon.TID, vif.cb_mon.TDEST);
 
           pkt_beat_count = 0;

@@ -11,10 +11,10 @@ class axi_stream_master_vip_base_sequence extends uvm_sequence #(axi_stream_mast
   // ── Transmit one randomized packet ─────────────────────────────────────────────
   task send_packet(
     int unsigned num_beats    = 1,
-    logic [`TID_WIDTH-1:0]   tid     = '0,
-    logic [`TDEST_WIDTH-1:0] tdest   = '0,
-    logic [`TSTRB_WIDTH-1:0] tkeep   = '1,
-    logic [`TSTRB_WIDTH-1:0] tstrb   = '1
+    logic [AXI_ID_W-1:0]   tid     = '0,
+    logic [AXI_DEST_W-1:0] tdest   = '0,
+    logic [AXI_STRB_W-1:0] tkeep   = '1,
+    logic [AXI_STRB_W-1:0] tstrb   = '1
   );
     axi_stream_master_vip_seq_item pkt;
     pkt = axi_stream_master_vip_seq_item::type_id::create("pkt");
@@ -32,12 +32,12 @@ class axi_stream_master_vip_base_sequence extends uvm_sequence #(axi_stream_mast
 
   // ── Transmit with all violation knobs off ──────────────────────────────────────
   task send_clean_packet(int unsigned num_beats = 1,
-                         logic [`TID_WIDTH-1:0] tid = '0);
+                         logic [AXI_ID_W-1:0] tid = '0);
     send_packet(.num_beats(num_beats), .tid(tid));
   endtask
 
   // ── Transmit a null-termination packet (TKEEP=0 on final beat) ────────────────
-  task send_null_term_packet(logic [`TID_WIDTH-1:0] tid = '0);
+  task send_null_term_packet(logic [AXI_ID_W-1:0] tid = '0);
     axi_stream_master_vip_seq_item pkt;
     pkt = axi_stream_master_vip_seq_item::type_id::create("pkt_null");
     start_item(pkt);

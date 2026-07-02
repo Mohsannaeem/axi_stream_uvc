@@ -15,16 +15,16 @@ class axi_stream_slave_vip_seq_item extends uvm_sequence_item;
   rand int unsigned inject_parity_fault_lane; // 0=none; 1-4 = inject fault on that lane
 
   // ── Received payload fields (populated by Monitor at handshake) ─────────────
-  logic [`TDATA_WIDTH-1:0]   tdata;
-  logic [`TDATA_WIDTH/8-1:0] tkeep;
-  logic [`TDATA_WIDTH/8-1:0] tstrb;
-  logic                      tlast;
-  logic [`TID_WIDTH-1:0]     tid;
-  logic [`TDEST_WIDTH-1:0]   tdest;
-  logic [`TUSER_WIDTH-1:0]   tuser;
+  logic [AXI_DATA_W-1:0]   tdata;
+  logic [AXI_DATA_W/8-1:0] tkeep;
+  logic [AXI_DATA_W/8-1:0] tstrb;
+  logic                     tlast;
+  logic [AXI_ID_W-1:0]     tid;
+  logic [AXI_DEST_W-1:0]   tdest;
+  logic [AXI_USER_W-1:0]   tuser;
 
   // ── Constraints ──────────────────────────────────────────────────────────────
-  constraint c_stall   { tready_stall_cycles inside {[0:`TREADY_STALL_MAX]}; }
+  constraint c_stall   { tready_stall_cycles inside {[0:TREADY_STALL_MAX]}; }
   constraint c_duty    { tready_duty_high_pct inside {[10:90]}; }
   constraint c_no_fault { inject_parity_fault_lane == 0; }  // off by default
   constraint c_no_drop  { inject_tvalid_drop == 0; }        // off by default

@@ -4,24 +4,29 @@
 `ifndef AXI_STREAM_MASTER_VIP_IF_SV
 `define AXI_STREAM_MASTER_VIP_IF_SV
 
-`include "axi_stream_master_vip_defines.sv"
-
-interface axi_stream_master_vip_if(input logic ACLK, ARESETn);
+interface axi_stream_master_vip_if #(
+  parameter int DATA_W  = 32,
+  parameter int ID_W    = 8,
+  parameter int DEST_W  = 4,
+  parameter int USER_W  = 4,
+  parameter bit HAS_PAR = 1,
+  parameter bit HAS_WAKE= 1
+)(input logic ACLK, input logic ARESETn);
 
   // ── Primary payload signals (driven by Master VIP) ───────────────────────────
   logic                        TVALID;
-  logic [`TDATA_WIDTH-1:0]     TDATA;
-  logic [`TSTRB_WIDTH-1:0]     TSTRB;
-  logic [`TSTRB_WIDTH-1:0]     TKEEP;
+  logic [DATA_W-1:0]           TDATA;
+  logic [DATA_W/8-1:0]         TSTRB;
+  logic [DATA_W/8-1:0]         TKEEP;
   logic                        TLAST;
-  logic [`TID_WIDTH-1:0]       TID;
-  logic [`TDEST_WIDTH-1:0]     TDEST;
-  logic [`TUSER_WIDTH-1:0]     TUSER;
+  logic [ID_W-1:0]             TID;
+  logic [DEST_W-1:0]           TDEST;
+  logic [USER_W-1:0]           TUSER;
   logic                        TWAKEUP;
 
   // ── AXI5 Parity check signals (driven by Master VIP) ─────────────────────────
   logic                        TVALIDCHK;
-  logic [`TSTRB_WIDTH-1:0]     TDATACHK;
+  logic [DATA_W/8-1:0]         TDATACHK;
   logic                        TLASTCHK;
   logic                        TWAKEUPCHK;
 
