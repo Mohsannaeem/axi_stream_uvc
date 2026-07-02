@@ -54,3 +54,5 @@ tool_settings:
     - -coverage
     notes: "Do NOT pass uvm_pkg.sv as source \xE2\u20AC\u201D use QuestaSim built-in\
       \ UVM 1.1d (avoids DPI runtime GCC requirement)"
+dependencies:
+  build: []

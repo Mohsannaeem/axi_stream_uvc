@@ -218,7 +218,62 @@ hooks:
   pre: ''
   post: ''
 groups:
-  smoke_test:
+  smore_regression:
   - axi_stream_master_vip_base_test
   regression:
   - axi_stream_master_vip_base_test
+  - axi_stream_master_vip_tc_mst_001_test
+  - axi_stream_master_vip_tc_mst_002_test
+  - axi_stream_master_vip_tc_mst_003_test
+  - axi_stream_master_vip_tc_mst_004_test
+  - axi_stream_master_vip_tc_mst_005_test
+  - axi_stream_master_vip_tc_mst_006_test
+  - axi_stream_master_vip_tc_mst_007_test
+  - axi_stream_master_vip_tc_mst_008_test
+  - axi_stream_master_vip_tc_mst_009_test
+  - axi_stream_master_vip_tc_mst_010_test
+  - axi_stream_master_vip_tc_mst_011_test
+  - axi_stream_master_vip_tc_mst_012_test
+  - axi_stream_master_vip_tc_mst_013_test
+  - axi_stream_master_vip_tc_mst_014_test
+  - axi_stream_master_vip_tc_mst_015_test
+  - axi_stream_master_vip_tc_mst_016_test
+  - axi_stream_master_vip_tc_mst_017_test
+  - axi_stream_master_vip_tc_mst_018_test
+  - axi_stream_master_vip_tc_mst_019_test
+  - axi_stream_master_vip_tc_mst_020_test
+  - axi_stream_master_vip_tc_mst_021_test
+  - axi_stream_master_vip_tc_mst_022_test
+  - axi_stream_master_vip_tc_mst_023_test
+  - axi_stream_master_vip_tc_mst_024_test
+  - axi_stream_master_vip_tc_mst_025_test
+  - axi_stream_master_vip_tc_mst_026_test
+  - axi_stream_master_vip_tc_mst_027_test
+  - axi_stream_master_vip_tc_mst_028_test
+  - axi_stream_master_vip_tc_mst_029_test
+  - axi_stream_master_vip_tc_mst_030_test
+  - axi_stream_master_vip_tc_mst_031_test
+  - axi_stream_master_vip_tc_mst_032_test
+  - axi_stream_master_vip_tc_mst_033_test
+  - axi_stream_master_vip_tc_mst_034_test
+  - axi_stream_master_vip_tc_mst_035_test
+  - axi_stream_master_vip_tc_mst_036_test
+  - axi_stream_master_vip_tc_mst_037_test
+  - axi_stream_master_vip_tc_mst_038_test
+  - axi_stream_master_vip_tc_mst_039_test
+  - axi_stream_master_vip_tc_mst_040_test
+  - axi_stream_master_vip_tc_mst_041_test
+  - axi_stream_master_vip_tc_mst_042_test
+  - axi_stream_master_vip_tc_mst_043_test
+  - axi_stream_master_vip_tc_mst_044_test
+  - axi_stream_master_vip_tc_mst_045_test
+  - axi_stream_master_vip_tc_mst_046_test
+  - axi_stream_master_vip_tc_mst_047_test
+  - axi_stream_master_vip_tc_mst_048_test
+  smoke_test:
+  - axi_stream_master_vip_base_test
+  - axi_stream_master_vip_tc_mst_001_test
+  - axi_stream_master_vip_tc_mst_002_test
+  - axi_stream_master_vip_tc_mst_003_test
+  - axi_stream_master_vip_tc_mst_004_test
+  - axi_stream_master_vip_tc_mst_005_test
