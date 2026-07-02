@@ -208,60 +208,68 @@ test_config:
     user_args: []
 groups:
   sanity_regression:
-  - axi_stream_slave_vip_base_test
-  - axi_stream_slv_vip_tc_001_test
-  - axi_stream_slv_vip_tc_002_test
-  - axi_stream_slv_vip_tc_003_test
-  - axi_stream_slv_vip_tc_004_test
-  - axi_stream_slv_vip_tc_005_test
+    tests:
+    - axi_stream_slave_vip_base_test
+    - axi_stream_slv_vip_tc_001_test
+    - axi_stream_slv_vip_tc_002_test
+    - axi_stream_slv_vip_tc_003_test
+    - axi_stream_slv_vip_tc_004_test
+    - axi_stream_slv_vip_tc_005_test
+    hooks:
+      pre: ''
+      post: ''
   full_regression:
-  - axi_stream_slave_vip_base_test
-  - axi_stream_slv_vip_tc_001_test
-  - axi_stream_slv_vip_tc_002_test
-  - axi_stream_slv_vip_tc_003_test
-  - axi_stream_slv_vip_tc_004_test
-  - axi_stream_slv_vip_tc_005_test
-  - axi_stream_slv_vip_tc_006_test
-  - axi_stream_slv_vip_tc_007_test
-  - axi_stream_slv_vip_tc_008_test
-  - axi_stream_slv_vip_tc_009_test
-  - axi_stream_slv_vip_tc_010_test
-  - axi_stream_slv_vip_tc_011_test
-  - axi_stream_slv_vip_tc_012_test
-  - axi_stream_slv_vip_tc_013_test
-  - axi_stream_slv_vip_tc_014_test
-  - axi_stream_slv_vip_tc_015_test
-  - axi_stream_slv_vip_tc_016_test
-  - axi_stream_slv_vip_tc_017_test
-  - axi_stream_slv_vip_tc_018_test
-  - axi_stream_slv_vip_tc_019_test
-  - axi_stream_slv_vip_tc_020_test
-  - axi_stream_slv_vip_tc_021_test
-  - axi_stream_slv_vip_tc_022_test
-  - axi_stream_slv_vip_tc_023_test
-  - axi_stream_slv_vip_tc_024_test
-  - axi_stream_slv_vip_tc_025_test
-  - axi_stream_slv_vip_tc_026_test
-  - axi_stream_slv_vip_tc_027_test
-  - axi_stream_slv_vip_tc_028_test
-  - axi_stream_slv_vip_tc_029_test
-  - axi_stream_slv_vip_tc_030_test
-  - axi_stream_slv_vip_tc_031_test
-  - axi_stream_slv_vip_tc_032_test
-  - axi_stream_slv_vip_tc_033_test
-  - axi_stream_slv_vip_tc_034_test
-  - axi_stream_slv_vip_tc_035_test
-  - axi_stream_slv_vip_tc_036_test
-  - axi_stream_slv_vip_tc_037_test
-  - axi_stream_slv_vip_tc_038_test
-  - axi_stream_slv_vip_tc_039_test
-  - axi_stream_slv_vip_tc_040_test
-  - axi_stream_slv_vip_tc_041_test
-  - axi_stream_slv_vip_tc_042_test
-  - axi_stream_slv_vip_tc_043_test
-  - axi_stream_slv_vip_tc_044_test
-  - axi_stream_slv_vip_tc_045_test
-  - axi_stream_slv_vip_tc_046_test
+    tests:
+    - axi_stream_slave_vip_base_test
+    - axi_stream_slv_vip_tc_001_test
+    - axi_stream_slv_vip_tc_002_test
+    - axi_stream_slv_vip_tc_003_test
+    - axi_stream_slv_vip_tc_004_test
+    - axi_stream_slv_vip_tc_005_test
+    - axi_stream_slv_vip_tc_006_test
+    - axi_stream_slv_vip_tc_007_test
+    - axi_stream_slv_vip_tc_008_test
+    - axi_stream_slv_vip_tc_009_test
+    - axi_stream_slv_vip_tc_010_test
+    - axi_stream_slv_vip_tc_011_test
+    - axi_stream_slv_vip_tc_012_test
+    - axi_stream_slv_vip_tc_013_test
+    - axi_stream_slv_vip_tc_014_test
+    - axi_stream_slv_vip_tc_015_test
+    - axi_stream_slv_vip_tc_016_test
+    - axi_stream_slv_vip_tc_017_test
+    - axi_stream_slv_vip_tc_018_test
+    - axi_stream_slv_vip_tc_019_test
+    - axi_stream_slv_vip_tc_020_test
+    - axi_stream_slv_vip_tc_021_test
+    - axi_stream_slv_vip_tc_022_test
+    - axi_stream_slv_vip_tc_023_test
+    - axi_stream_slv_vip_tc_024_test
+    - axi_stream_slv_vip_tc_025_test
+    - axi_stream_slv_vip_tc_026_test
+    - axi_stream_slv_vip_tc_027_test
+    - axi_stream_slv_vip_tc_028_test
+    - axi_stream_slv_vip_tc_029_test
+    - axi_stream_slv_vip_tc_030_test
+    - axi_stream_slv_vip_tc_031_test
+    - axi_stream_slv_vip_tc_032_test
+    - axi_stream_slv_vip_tc_033_test
+    - axi_stream_slv_vip_tc_034_test
+    - axi_stream_slv_vip_tc_035_test
+    - axi_stream_slv_vip_tc_036_test
+    - axi_stream_slv_vip_tc_037_test
+    - axi_stream_slv_vip_tc_038_test
+    - axi_stream_slv_vip_tc_039_test
+    - axi_stream_slv_vip_tc_040_test
+    - axi_stream_slv_vip_tc_041_test
+    - axi_stream_slv_vip_tc_042_test
+    - axi_stream_slv_vip_tc_043_test
+    - axi_stream_slv_vip_tc_044_test
+    - axi_stream_slv_vip_tc_045_test
+    - axi_stream_slv_vip_tc_046_test
+    hooks:
+      pre: ''
+      post: ''
 hooks:
   pre: ''
   post: ''
