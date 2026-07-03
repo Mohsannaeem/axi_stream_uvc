@@ -217,7 +217,7 @@ groups:
     - axi_stream_slv_vip_tc_005_test
     hooks:
       pre: ''
-      post: ''
+      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_SLAVE_SMOKE_REGRESSION --total {total} --passed {passed} --failed {failed}'
   full_regression:
     tests:
     - axi_stream_slave_vip_base_test
@@ -269,7 +269,4 @@ groups:
     - axi_stream_slv_vip_tc_046_test
     hooks:
       pre: ''
-      post: ''
-hooks:
-  pre: ''
-  post: ''
+      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_SLAVE_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}'
