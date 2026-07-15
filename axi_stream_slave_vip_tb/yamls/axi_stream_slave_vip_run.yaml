@@ -1,9 +1,9 @@
-# EDA Buddy Runtime Config (Auto-Generated)
 runtime:
   common_args:
   - +UVM_VERBOSITY=UVM_MEDIUM
   - +UVM_MAX_QUIT_COUNT=10
   - +UVM_TIMEOUT=100000000
+  - +TRACKER_DIR=$$RUN_DIR
   tool_args:
     vcs:
     - -l simv.log
@@ -206,67 +206,273 @@ test_config:
     description: 'Test: axi_stream_slv_vip_tc_046_test'
     seed: random
     user_args: []
+  - name: axi_stream_slave_vip_tc_slv_001_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_001_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_002_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_002_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_003_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_003_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_004_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_004_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_005_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_005_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_006_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_006_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_007_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_007_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_008_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_008_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_009_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_009_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_011_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_011_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_012_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_012_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_013_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_013_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_015_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_015_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_016_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_016_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_017_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_017_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_019_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_019_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_020_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_020_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_021_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_021_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_025_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_025_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_026_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_026_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_027_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_027_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_028_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_028_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_029_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_029_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_030_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_030_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_031_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_031_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_032_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_032_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_033_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_033_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_034_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_034_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_035_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_035_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_036_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_036_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_037_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_037_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_038_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_038_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_040_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_040_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_041_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_041_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_042_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_042_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_043_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_043_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_045_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_045_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_047_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_047_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_010_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_010_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_014_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_014_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_018_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_018_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_022_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_022_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_023_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_023_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_024_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_024_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_039_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_039_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_044_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_044_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_046_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_046_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_048_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_048_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_049_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_049_test'
+    seed: random
+    user_args: []
+  - name: axi_stream_slave_vip_tc_slv_050_test
+    description: 'Test: axi_stream_slave_vip_tc_slv_050_test'
+    seed: random
+    user_args: []
 groups:
   sanity_regression:
     tests:
-    - axi_stream_slave_vip_base_test
-    - axi_stream_slv_vip_tc_001_test
-    - axi_stream_slv_vip_tc_002_test
-    - axi_stream_slv_vip_tc_003_test
-    - axi_stream_slv_vip_tc_004_test
-    - axi_stream_slv_vip_tc_005_test
+    - axi_stream_slave_vip_tc_slv_001_test
+    - axi_stream_slave_vip_tc_slv_002_test
+    - axi_stream_slave_vip_tc_slv_003_test
+    - axi_stream_slave_vip_tc_slv_004_test
+    - axi_stream_slave_vip_tc_slv_005_test
+    - axi_stream_slave_vip_tc_slv_006_test
     hooks:
       pre: ''
-      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_SLAVE_SMOKE_REGRESSION --total {total} --passed {passed} --failed {failed}'
+      post: ''
   full_regression:
     tests:
-    - axi_stream_slave_vip_base_test
-    - axi_stream_slv_vip_tc_001_test
-    - axi_stream_slv_vip_tc_002_test
-    - axi_stream_slv_vip_tc_003_test
-    - axi_stream_slv_vip_tc_004_test
-    - axi_stream_slv_vip_tc_005_test
-    - axi_stream_slv_vip_tc_006_test
-    - axi_stream_slv_vip_tc_007_test
-    - axi_stream_slv_vip_tc_008_test
-    - axi_stream_slv_vip_tc_009_test
-    - axi_stream_slv_vip_tc_010_test
-    - axi_stream_slv_vip_tc_011_test
-    - axi_stream_slv_vip_tc_012_test
-    - axi_stream_slv_vip_tc_013_test
-    - axi_stream_slv_vip_tc_014_test
-    - axi_stream_slv_vip_tc_015_test
-    - axi_stream_slv_vip_tc_016_test
-    - axi_stream_slv_vip_tc_017_test
-    - axi_stream_slv_vip_tc_018_test
-    - axi_stream_slv_vip_tc_019_test
-    - axi_stream_slv_vip_tc_020_test
-    - axi_stream_slv_vip_tc_021_test
-    - axi_stream_slv_vip_tc_022_test
-    - axi_stream_slv_vip_tc_023_test
-    - axi_stream_slv_vip_tc_024_test
-    - axi_stream_slv_vip_tc_025_test
-    - axi_stream_slv_vip_tc_026_test
-    - axi_stream_slv_vip_tc_027_test
-    - axi_stream_slv_vip_tc_028_test
-    - axi_stream_slv_vip_tc_029_test
-    - axi_stream_slv_vip_tc_030_test
-    - axi_stream_slv_vip_tc_031_test
-    - axi_stream_slv_vip_tc_032_test
-    - axi_stream_slv_vip_tc_033_test
-    - axi_stream_slv_vip_tc_034_test
-    - axi_stream_slv_vip_tc_035_test
-    - axi_stream_slv_vip_tc_036_test
-    - axi_stream_slv_vip_tc_037_test
-    - axi_stream_slv_vip_tc_038_test
-    - axi_stream_slv_vip_tc_039_test
-    - axi_stream_slv_vip_tc_040_test
-    - axi_stream_slv_vip_tc_041_test
-    - axi_stream_slv_vip_tc_042_test
-    - axi_stream_slv_vip_tc_043_test
-    - axi_stream_slv_vip_tc_044_test
-    - axi_stream_slv_vip_tc_045_test
-    - axi_stream_slv_vip_tc_046_test
+    - axi_stream_slave_vip_tc_slv_001_test
+    - axi_stream_slave_vip_tc_slv_002_test
+    - axi_stream_slave_vip_tc_slv_003_test
+    - axi_stream_slave_vip_tc_slv_004_test
+    - axi_stream_slave_vip_tc_slv_005_test
+    - axi_stream_slave_vip_tc_slv_006_test
+    - axi_stream_slave_vip_tc_slv_007_test
+    - axi_stream_slave_vip_tc_slv_008_test
+    - axi_stream_slave_vip_tc_slv_009_test
+    - axi_stream_slave_vip_tc_slv_010_test
+    - axi_stream_slave_vip_tc_slv_011_test
+    - axi_stream_slave_vip_tc_slv_012_test
+    - axi_stream_slave_vip_tc_slv_013_test
+    - axi_stream_slave_vip_tc_slv_014_test
+    - axi_stream_slave_vip_tc_slv_015_test
+    - axi_stream_slave_vip_tc_slv_016_test
+    - axi_stream_slave_vip_tc_slv_017_test
+    - axi_stream_slave_vip_tc_slv_018_test
+    - axi_stream_slave_vip_tc_slv_019_test
+    - axi_stream_slave_vip_tc_slv_020_test
+    - axi_stream_slave_vip_tc_slv_021_test
+    - axi_stream_slave_vip_tc_slv_022_test
+    - axi_stream_slave_vip_tc_slv_023_test
+    - axi_stream_slave_vip_tc_slv_024_test
+    - axi_stream_slave_vip_tc_slv_025_test
+    - axi_stream_slave_vip_tc_slv_026_test
+    - axi_stream_slave_vip_tc_slv_027_test
+    - axi_stream_slave_vip_tc_slv_028_test
+    - axi_stream_slave_vip_tc_slv_029_test
+    - axi_stream_slave_vip_tc_slv_030_test
+    - axi_stream_slave_vip_tc_slv_031_test
+    - axi_stream_slave_vip_tc_slv_032_test
+    - axi_stream_slave_vip_tc_slv_033_test
+    - axi_stream_slave_vip_tc_slv_034_test
+    - axi_stream_slave_vip_tc_slv_035_test
+    - axi_stream_slave_vip_tc_slv_036_test
+    - axi_stream_slave_vip_tc_slv_037_test
+    - axi_stream_slave_vip_tc_slv_038_test
+    - axi_stream_slave_vip_tc_slv_039_test
+    - axi_stream_slave_vip_tc_slv_040_test
+    - axi_stream_slave_vip_tc_slv_041_test
+    - axi_stream_slave_vip_tc_slv_042_test
+    - axi_stream_slave_vip_tc_slv_043_test
+    - axi_stream_slave_vip_tc_slv_044_test
+    - axi_stream_slave_vip_tc_slv_045_test
+    - axi_stream_slave_vip_tc_slv_046_test
+    - axi_stream_slave_vip_tc_slv_047_test
+    - axi_stream_slave_vip_tc_slv_048_test
+    - axi_stream_slave_vip_tc_slv_049_test
+    - axi_stream_slave_vip_tc_slv_050_test
     hooks:
       pre: ''
-      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_SLAVE_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}'
+      post: ''
+hooks:
+  pre: ''
+  post: ''

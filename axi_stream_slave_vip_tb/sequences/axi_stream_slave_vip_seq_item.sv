@@ -1,66 +1,77 @@
-// AXI-Stream Slave VIP Sequence Item
-// Carries both: (a) TREADY stimulus knobs from Driver, and
-//               (b) received payload fields populated by Monitor
+// =============================================================================
+// AXI5-Stream Slave VIP — Sequence Item
+// One item == a TREADY BACK-PRESSURE PROFILE the VIP will drive while accepting
+// a span of beats. The Slave VIP does not generate payload (the DUT owns it), so
+// this item carries no TDATA/TKEEP — only how the Receiver applies back-pressure.
+// =============================================================================
+`ifndef AXI_STREAM_SLAVE_VIP_SEQ_ITEM_SV
+`define AXI_STREAM_SLAVE_VIP_SEQ_ITEM_SV
+
+typedef enum bit [2:0] {
+  READY_CONTINUOUS,   // TREADY held HIGH
+  READY_PERIODIC,     // TREADY HIGH every `period` cycles
+  READY_SINGLE_PULSE, // TREADY HIGH for one cycle at a time
+  READY_SPARSE,       // long random stalls between accepts
+  READY_WAKEUP_GATED  // TREADY withheld until observed TWAKEUP HIGH
+} axi_stream_slave_ready_mode_e;
+
 class axi_stream_slave_vip_seq_item extends uvm_sequence_item;
-  `uvm_object_utils(axi_stream_slave_vip_seq_item)
 
-  // ── TREADY stimulus knobs (used by Driver) ──────────────────────────────────
-  rand int unsigned tready_stall_cycles;    // 0 = no stall (immediate accept)
-  rand bit          tready_pre_assert;      // assert TREADY before TVALID arrives
-  rand int unsigned tready_duty_high_pct;   // duty cycle % high (10–90)
-  rand int unsigned stall_at_beat;          // intra-packet beat to apply stall
+  // ── Back-pressure profile ─────────────────────────────────────────────────
+  rand int unsigned                  num_beats_to_accept;
+  rand int unsigned                  ready_delay[$];   // TREADY-low cycles before each accept
+  rand axi_stream_slave_ready_mode_e mode;
+  rand int unsigned                  period;           // for READY_PERIODIC
 
-  // ── Negative/fault injection knobs ──────────────────────────────────────────
-  rand bit          inject_tvalid_drop;     // force monitor violation (negative TC)
-  rand int unsigned inject_parity_fault_lane; // 0=none; 1-4 = inject fault on that lane
+  // ── Negative / fault knob (VIP-owned signal only) ─────────────────────────
+  rand bit inject_readychk_fault;    // corrupt TREADYCHK parity (VIP drives TREADYCHK)
 
-  // ── Received payload fields (populated by Monitor at handshake) ─────────────
-  logic [AXI_DATA_W-1:0]   tdata;
-  logic [AXI_DATA_W/8-1:0] tkeep;
-  logic [AXI_DATA_W/8-1:0] tstrb;
-  logic                     tlast;
-  logic [AXI_ID_W-1:0]     tid;
-  logic [AXI_DEST_W-1:0]   tdest;
-  logic [AXI_USER_W-1:0]   tuser;
-
-  // ── Constraints ──────────────────────────────────────────────────────────────
-  constraint c_stall   { tready_stall_cycles inside {[0:TREADY_STALL_MAX]}; }
-  constraint c_duty    { tready_duty_high_pct inside {[10:90]}; }
-  constraint c_no_fault { inject_parity_fault_lane == 0; }  // off by default
-  constraint c_no_drop  { inject_tvalid_drop == 0; }        // off by default
+  `uvm_object_utils_begin(axi_stream_slave_vip_seq_item)
+    `uvm_field_int(num_beats_to_accept,  UVM_ALL_ON | UVM_DEC)
+    `uvm_field_queue_int(ready_delay,    UVM_ALL_ON | UVM_DEC)
+    `uvm_field_enum(axi_stream_slave_ready_mode_e, mode, UVM_ALL_ON)
+    `uvm_field_int(period,               UVM_ALL_ON | UVM_DEC)
+    `uvm_field_int(inject_readychk_fault, UVM_ALL_ON)
+  `uvm_object_utils_end
 
   function new(string name = "axi_stream_slave_vip_seq_item");
     super.new(name);
   endfunction
 
-  virtual function void do_copy(uvm_object rhs);
-    axi_stream_slave_vip_seq_item rhs_;
+  constraint c_beats  { num_beats_to_accept inside {[1:`MAX_PACKET_BEATS]}; }
+  constraint c_qsize  { ready_delay.size() == num_beats_to_accept; }
+  constraint c_delay  { foreach (ready_delay[i]) ready_delay[i] inside {[0:`TREADY_STALL_MAX]}; }
+  constraint c_period { period inside {[1:8]}; }
+
+  // Legality: the fault knob is held off unless a negative sequence enables it.
+  constraint c_legal  { inject_readychk_fault == 0; }
+
+  function void do_copy(uvm_object rhs);
+    axi_stream_slave_vip_seq_item r;
+    if (!$cast(r, rhs)) begin
+      `uvm_error("do_copy", "cast failed"); return;
+    end
     super.do_copy(rhs);
-    if (!$cast(rhs_, rhs)) return;
-    tready_stall_cycles    = rhs_.tready_stall_cycles;
-    tready_pre_assert      = rhs_.tready_pre_assert;
-    tready_duty_high_pct   = rhs_.tready_duty_high_pct;
-    stall_at_beat          = rhs_.stall_at_beat;
-    inject_tvalid_drop     = rhs_.inject_tvalid_drop;
-    inject_parity_fault_lane = rhs_.inject_parity_fault_lane;
-    tdata = rhs_.tdata; tkeep = rhs_.tkeep; tstrb = rhs_.tstrb;
-    tlast = rhs_.tlast; tid   = rhs_.tid;   tdest = rhs_.tdest;
-    tuser = rhs_.tuser;
+    num_beats_to_accept  = r.num_beats_to_accept;
+    ready_delay          = r.ready_delay;
+    mode                 = r.mode;
+    period               = r.period;
+    inject_readychk_fault = r.inject_readychk_fault;
   endfunction
 
-  virtual function bit do_compare(uvm_object rhs, uvm_comparer comparer);
-    axi_stream_slave_vip_seq_item rhs_;
-    if (!$cast(rhs_, rhs)) return 0;
-    return (tdata === rhs_.tdata && tkeep === rhs_.tkeep && tstrb === rhs_.tstrb &&
-            tlast === rhs_.tlast && tid   === rhs_.tid   && tdest === rhs_.tdest &&
-            tuser === rhs_.tuser);
+  function bit do_compare(uvm_object rhs, uvm_comparer comparer);
+    axi_stream_slave_vip_seq_item r;
+    if (!$cast(r, rhs)) return 0;
+    return super.do_compare(rhs, comparer)
+        && num_beats_to_accept == r.num_beats_to_accept
+        && mode == r.mode && period == r.period;
   endfunction
 
-  virtual function string convert2string();
-    return $sformatf(
-      "[SlvVIP_Item] TDATA=0x%08h TKEEP=%0b TSTRB=%0b TLAST=%0b TID=0x%02h TDEST=0x%0h | STALL=%0d PRE=%0b",
-      tdata, tkeep, tstrb, tlast, tid, tdest,
-      tready_stall_cycles, tready_pre_assert);
+  function string convert2string();
+    return $sformatf("READY_PROFILE mode=%s beats=%0d period=%0d fault=%0b",
+                     mode.name(), num_beats_to_accept, period, inject_readychk_fault);
   endfunction
 
 endclass
+
+`endif

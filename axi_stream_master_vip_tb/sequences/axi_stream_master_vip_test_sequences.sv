@@ -1,553 +1,675 @@
-// AXI-Stream Master VIP Test Sequences
-// 48 sequences mapping to TC_MST_001 through TC_MST_048
-// Each sequence covers a specific requirement from the verification plan.
+// =============================================================================
+// AXI5-Stream Master VIP — Test Sequences
+// One sequence class per test_cases[] entry in verif_plan_axi_stream_master_v17_0.yaml.
+// 48 classes, TC_MST_001 .. TC_MST_048. No stub bodies: every class encodes the
+// constraints of its scenario, because a sequence that does not is a traceability
+// failure dressed up as a placeholder.
+//
+// NEGATIVE SEQUENCES (TC 003, 006, 010, 039, 048) call c_legal.constraint_mode(0)
+// BEFORE randomize(). Randomizing first and poking the knob afterwards yields a
+// legal item and the negative test passes without ever driving the violation.
+// =============================================================================
+`ifndef AXI_STREAM_MASTER_VIP_TEST_SEQUENCES_SV
+`define AXI_STREAM_MASTER_VIP_TEST_SEQUENCES_SV
 
-// ═══ REQ_MST_01: TVALID Stability ════════════════════════════════════════════
+// ── REQ_MST_01 — TVALID independence ─────────────────────────────────────────
 
-// TC_MST_001: Single-beat packet — no stall
+// TC_MST_001 — Smoke: single-beat packet, no delay.
 class axi_stream_master_vip_tc_mst_001_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_001_seq)
-  function new(string name = "tc_mst_001"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_001] TVALID Stability — single beat, no stall", UVM_MEDIUM)
-    repeat(5) send_clean_packet(.num_beats(1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_001_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats == 1;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+      foreach (keep[i]) keep[i] == '1;
+      foreach (strb[i]) strb[i] == '1;
+    }) `uvm_fatal("SEQ/RAND", "TC_001 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_002: Multi-beat packet — stability under extended TREADY stall
+// TC_MST_002 — TVALID asserted while TREADY is still low (1-16 cycle lead).
 class axi_stream_master_vip_tc_mst_002_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_002_seq)
-  function new(string name = "tc_mst_002"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_002] TVALID Stability — multi-beat (64 beats), extended stall", UVM_MEDIUM)
-    repeat(3) send_clean_packet(.num_beats(64));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_002_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[1:16]};
+    }) `uvm_fatal("SEQ/RAND", "TC_002 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_003: Back-to-back single-beat packets
+// TC_MST_003 — NEGATIVE: TREADY watchdog must fire rather than hang.
+// The test shrinks cfg.watchdog_cycles so the DUT's normal back-pressure trips it.
 class axi_stream_master_vip_tc_mst_003_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_003_seq)
-  function new(string name = "tc_mst_003"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_003] TVALID Stability — 20 back-to-back single beats", UVM_MEDIUM)
-    repeat(20) send_clean_packet(.num_beats(1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_003_seq"); super.new(name); endfunction
+  function bit is_negative(); return 1; endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[4:16]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_003 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_004: TVALID early deassert (violation — expect monitor fatal)
+// TC_MST_004 — TVALID latency invariant across the full stall range.
 class axi_stream_master_vip_tc_mst_004_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_004_seq)
-  function new(string name = "tc_mst_004"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_004] TVALID Violation — drop TVALID before handshake", UVM_MEDIUM)
-    send_violation_packet(.drop_valid_early(1), .num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_004_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 20; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:8]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[0:`TREADY_STALL_MAX]};
+    }) `uvm_fatal("SEQ/RAND", "TC_004 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_02: Pre-TVALID TREADY ══════════════════════════════════════════
+// ── REQ_MST_02 — TVALID stability ────────────────────────────────────────────
 
-// TC_MST_005: TREADY=1 before TVALID (slave pre-asserts ready)
+// TC_MST_005 — TVALID sticky across a 1-100 cycle stall.
 class axi_stream_master_vip_tc_mst_005_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_005_seq)
-  function new(string name = "tc_mst_005"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_005] Pre-TVALID TREADY — handshake with pre-asserted TREADY", UVM_MEDIUM)
-    repeat(10) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_005_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[1:`TREADY_STALL_MAX]};
+    }) `uvm_fatal("SEQ/RAND", "TC_005 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_006: TREADY toggles around TVALID window
+// TC_MST_006 — NEGATIVE: retract TVALID mid-stall. Expect CHK/TVALID_STABILITY.
 class axi_stream_master_vip_tc_mst_006_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_006_seq)
-  function new(string name = "tc_mst_006"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_006] Pre-TVALID TREADY — TREADY toggles mid-stream", UVM_MEDIUM)
-    repeat(5) send_clean_packet(.num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_006_seq"); super.new(name); endfunction
+  function bit is_negative(); return 1; endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    item.c_legal.constraint_mode(0);   // MUST precede randomize()
+    if (!item.randomize() with {
+      inject_tvalid_drop == 1;
+      inject_parity_fault == 0;   // pin: constraint_mode(0) freed every knob
+      inject_reserved_qual == 0;   // pin: constraint_mode(0) freed every knob
+      inject_payload_mutate == 0;   // pin: constraint_mode(0) freed every knob
+      packet_beats inside {[2:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_006 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_007: Simultaneous TVALID/TREADY assertion
+// TC_MST_007 — Max-length packet, every beat stalled.
 class axi_stream_master_vip_tc_mst_007_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_007_seq)
-  function new(string name = "tc_mst_007"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_007] Pre-TVALID TREADY — simultaneous assertion", UVM_MEDIUM)
-    repeat(15) send_clean_packet(.num_beats(1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_007_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats == `MAX_PACKET_BEATS;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[1:4]};
+    }) `uvm_fatal("SEQ/RAND", "TC_007 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_008: TREADY deasserts during multi-beat packet
+// TC_MST_008 — TREADY toggles before the sampling edge; VIP holds TVALID.
 class axi_stream_master_vip_tc_mst_008_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_008_seq)
-  function new(string name = "tc_mst_008"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_008] Pre-TVALID TREADY — TREADY deasserts mid-packet", UVM_MEDIUM)
-    repeat(5) send_clean_packet(.num_beats(16));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_008_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[4:12]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[2:20]};
+    }) `uvm_fatal("SEQ/RAND", "TC_008 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_03: Zero-Stall Throughput ═══════════════════════════════════════
+// ── REQ_MST_03 — payload stability ───────────────────────────────────────────
 
-// TC_MST_009: 100 packets — zero stall (DUT holds TREADY=1 continuously)
+// TC_MST_009 — Payload frozen from TVALID rise to handshake.
 class axi_stream_master_vip_tc_mst_009_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_009_seq)
-  function new(string name = "tc_mst_009"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_009] Zero-Stall — 100 pkts max throughput", UVM_MEDIUM)
-    repeat(100) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_009_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[5:`TREADY_STALL_MAX]};
+    }) `uvm_fatal("SEQ/RAND", "TC_009 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_010: Zero-stall single-beat burst (256 beats)
+// TC_MST_010 — NEGATIVE: mutate payload mid-stall. Expect CHK/PAYLOAD_STABILITY.
 class axi_stream_master_vip_tc_mst_010_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_010_seq)
-  function new(string name = "tc_mst_010"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_010] Zero-Stall — max packet length (256 beats)", UVM_MEDIUM)
-    repeat(3) send_clean_packet(.num_beats(256));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_010_seq"); super.new(name); endfunction
+  function bit is_negative(); return 1; endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    item.c_legal.constraint_mode(0);   // MUST precede randomize()
+    if (!item.randomize() with {
+      inject_payload_mutate == 1;
+      inject_tvalid_drop == 0;   // pin: constraint_mode(0) freed every knob
+      inject_parity_fault == 0;   // pin: constraint_mode(0) freed every knob
+      inject_reserved_qual == 0;   // pin: constraint_mode(0) freed every knob
+      packet_beats inside {[2:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_010 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_011: Alternating stall / no-stall
+// TC_MST_011 — Qualifier stability during stall (TKEEP/TSTRB must not shift).
 class axi_stream_master_vip_tc_mst_011_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_011_seq)
-  function new(string name = "tc_mst_011"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_011] Zero-Stall — alternating stall/no-stall packets", UVM_MEDIUM)
-    for (int i = 0; i < 20; i++) send_clean_packet(.num_beats((i%2 == 0) ? 1 : 8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_011_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[3:10]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[3:30]};
+      foreach (keep[i]) keep[i] != '1;   // force sparse so qualifier drift is visible
+    }) `uvm_fatal("SEQ/RAND", "TC_011 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_012: Zero-stall with variable packet lengths
+// TC_MST_012 — Per-beat stability across a 16-beat packet.
 class axi_stream_master_vip_tc_mst_012_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_012_seq)
-  function new(string name = "tc_mst_012"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_012] Zero-Stall — fully random packet lengths", UVM_MEDIUM)
-    repeat(50) begin
-      axi_stream_master_vip_seq_item pkt;
-      pkt = axi_stream_master_vip_seq_item::type_id::create("pkt");
-      start_item(pkt);
-      if (!pkt.randomize()) `uvm_fatal("RAND","randomize failed tc_mst_012")
-      finish_item(pkt);
-    end
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_012_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats == 16;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[1:10]};
+    }) `uvm_fatal("SEQ/RAND", "TC_012 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_04: TLAST Framing ═══════════════════════════════════════════════
+// ── REQ_MST_04 — zero-wait throughput ────────────────────────────────────────
 
-// TC_MST_013: Single-beat packet — TLAST on beat 1
+// TC_MST_013 — 32-beat zero-delay burst.
 class axi_stream_master_vip_tc_mst_013_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_013_seq)
-  function new(string name = "tc_mst_013"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_013] TLAST Framing — single-beat packet (TLAST=1 on beat 1)", UVM_MEDIUM)
-    repeat(10) send_clean_packet(.num_beats(1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_013_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats == 32;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_013 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_014: Long packet (128 beats) — TLAST only on final beat
+// TC_MST_014 — PERF_THROUGHPUT: scoreboard asserts 1.0 beats/cycle.
 class axi_stream_master_vip_tc_mst_014_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_014_seq)
-  function new(string name = "tc_mst_014"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_014] TLAST Framing — 128-beat packet, TLAST on final only", UVM_MEDIUM)
-    repeat(2) send_clean_packet(.num_beats(128));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_014_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 4; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[16:32]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_014 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_015: Back-to-back multi-beat packets
+// TC_MST_015 — Same-cycle TVALID/TREADY handshake.
 class axi_stream_master_vip_tc_mst_015_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_015_seq)
-  function new(string name = "tc_mst_015"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_015] TLAST Framing — back-to-back 16-beat packets", UVM_MEDIUM)
-    repeat(10) send_clean_packet(.num_beats(16));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_015_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 10; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_015 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_016: Odd-numbered beats per packet
+// TC_MST_016 — Back-to-back zero-gap packets at full rate.
 class axi_stream_master_vip_tc_mst_016_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_016_seq)
-  function new(string name = "tc_mst_016"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_016] TLAST Framing — odd-length packets (3, 7, 11 beats)", UVM_MEDIUM)
-    send_clean_packet(.num_beats(3));
-    send_clean_packet(.num_beats(7));
-    send_clean_packet(.num_beats(11));
-    send_clean_packet(.num_beats(13));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_016_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 3; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[8:24]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+      wakeup_lead_cycles == 1;
+    }) `uvm_fatal("SEQ/RAND", "TC_016 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_05: Null Termination ════════════════════════════════════════════
+// ── REQ_MST_05 — reset-state TVALID ──────────────────────────────────────────
+// The reset stimulus itself is applied by the TEST (it owns the reset task);
+// these sequences supply the traffic that reset must interrupt.
 
-// TC_MST_017: Isolated null-termination packet
 class axi_stream_master_vip_tc_mst_017_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_017_seq)
-  function new(string name = "tc_mst_017"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_017] Null Termination — isolated null-term packet", UVM_MEDIUM)
-    send_null_term_packet();
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_017_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[1:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0; })
+      `uvm_fatal("SEQ/RAND", "TC_017 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_018: Null-term packet immediately after data packet
 class axi_stream_master_vip_tc_mst_018_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_018_seq)
-  function new(string name = "tc_mst_018"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_018] Null Termination — null-term after data packet", UVM_MEDIUM)
-    send_clean_packet(.num_beats(8));
-    send_null_term_packet();
-    send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_018_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 8; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[8:32]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[0:3]}; })
+      `uvm_fatal("SEQ/RAND", "TC_018 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_019: Back-to-back null-term packets
 class axi_stream_master_vip_tc_mst_019_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_019_seq)
-  function new(string name = "tc_mst_019"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_019] Null Termination — back-to-back null-term packets", UVM_MEDIUM)
-    repeat(5) send_null_term_packet();
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_019_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 8; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[4:16]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[10:40]}; })
+      `uvm_fatal("SEQ/RAND", "TC_019 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_020: Null-term at different TID values
 class axi_stream_master_vip_tc_mst_020_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_020_seq)
-  function new(string name = "tc_mst_020"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_020] Null Termination — null-term across multiple TID values", UVM_MEDIUM)
-    send_null_term_packet(.tid(8'h00));
-    send_null_term_packet(.tid(8'h01));
-    send_null_term_packet(.tid(8'hFF));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_020_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 12; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[2:8]}; })
+      `uvm_fatal("SEQ/RAND", "TC_020 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_06: TKEEP Patterns ══════════════════════════════════════════════
+// ── REQ_MST_06 — reset exit timing ───────────────────────────────────────────
 
-// TC_MST_021: All-HIGH TKEEP (all bytes valid)
 class axi_stream_master_vip_tc_mst_021_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_021_seq)
-  function new(string name = "tc_mst_021"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_021] TKEEP — all bytes valid (TKEEP=0b1111)", UVM_MEDIUM)
-    repeat(10) send_packet(.num_beats(4), .tkeep('1), .tstrb('1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_021_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[1:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0; })
+      `uvm_fatal("SEQ/RAND", "TC_021 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_022: Sparse TKEEP (alternating bytes)
 class axi_stream_master_vip_tc_mst_022_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_022_seq)
-  function new(string name = "tc_mst_022"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_022] TKEEP — sparse patterns (0b0101, 0b1010)", UVM_MEDIUM)
-    send_packet(.num_beats(4), .tkeep(4'b0101), .tstrb(4'b0101));
-    send_packet(.num_beats(4), .tkeep(4'b1010), .tstrb(4'b0000));
-    send_packet(.num_beats(4), .tkeep(4'b0001), .tstrb(4'b0001));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_022_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 6; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[1:6]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0; })
+      `uvm_fatal("SEQ/RAND", "TC_022 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_023: TKEEP null byte in mid-packet (position byte)
 class axi_stream_master_vip_tc_mst_023_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_023_seq)
-  function new(string name = "tc_mst_023"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_023] TKEEP — position bytes TKEEP=1 TSTRB=0", UVM_MEDIUM)
-    send_packet(.num_beats(4), .tkeep(4'b1111), .tstrb(4'b0000));  // all position bytes
-    send_packet(.num_beats(4), .tkeep(4'b1100), .tstrb(4'b0100));  // mixed
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_023_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[1:2]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0; })
+      `uvm_fatal("SEQ/RAND", "TC_023 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_024: Reserved TSTRB/TKEEP combination (violation)
 class axi_stream_master_vip_tc_mst_024_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_024_seq)
-  function new(string name = "tc_mst_024"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_024] TKEEP Violation — TSTRB=1 with TKEEP=0 (reserved)", UVM_MEDIUM)
-    send_violation_packet(.inject_invalid_tstrb_tkeep(1), .num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_024_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[2:6]};
+      wakeup_lead_cycles inside {[2:8]}; })
+      `uvm_fatal("SEQ/RAND", "TC_024 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_07: TSTRB Qualification ════════════════════════════════════════
+// ── REQ_MST_07 — TLAST boundary ──────────────────────────────────────────────
 
-// TC_MST_025: Data bytes only (TSTRB=1, TKEEP=1)
+// TC_MST_025 — Minimal packet: TLAST on the first and only beat.
 class axi_stream_master_vip_tc_mst_025_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_025_seq)
-  function new(string name = "tc_mst_025"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_025] TSTRB — all data bytes (TKEEP=1 TSTRB=1)", UVM_MEDIUM)
-    repeat(8) send_packet(.num_beats(4), .tkeep('1), .tstrb('1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_025_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 10; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats == 1; })
+      `uvm_fatal("SEQ/RAND", "TC_025 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_026: Position bytes only (TSTRB=0, TKEEP=1)
+// TC_MST_026 — Maximum packet: TLAST only on beat MAX_PACKET_BEATS.
 class axi_stream_master_vip_tc_mst_026_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_026_seq)
-  function new(string name = "tc_mst_026"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_026] TSTRB — position bytes only (TKEEP=1 TSTRB=0)", UVM_MEDIUM)
-    repeat(8) send_packet(.num_beats(4), .tkeep('1), .tstrb('0));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_026_seq"); super.new(name); endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats == `MAX_PACKET_BEATS;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[0:2]}; })
+      `uvm_fatal("SEQ/RAND", "TC_026 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_027: Mixed data + position bytes
+// TC_MST_027 — Packet-count preservation across 25 packets.
 class axi_stream_master_vip_tc_mst_027_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_027_seq)
-  function new(string name = "tc_mst_027"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_027] TSTRB — mixed data + position bytes", UVM_MEDIUM)
-    send_packet(.num_beats(4), .tkeep(4'b1111), .tstrb(4'b1010));
-    send_packet(.num_beats(4), .tkeep(4'b1111), .tstrb(4'b0101));
-    send_packet(.num_beats(4), .tkeep(4'b0110), .tstrb(4'b0100));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_027_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 25; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[1:32]}; })
+      `uvm_fatal("SEQ/RAND", "TC_027 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_028: TSTRB walk through all valid byte positions
+// TC_MST_028 — Random-length sweep including both extremes.
 class axi_stream_master_vip_tc_mst_028_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_028_seq)
-  function new(string name = "tc_mst_028"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_028] TSTRB — walk all qualifier combinations", UVM_MEDIUM)
-    for (int k = 0; k < 16; k++) begin
-      logic [3:0] tstrb = k[3:0];
-      logic [3:0] tkeep = tstrb | 4'b0000;  // TKEEP must be superset of TSTRB
-      tkeep = tstrb;  // simplest valid combination: TKEEP==TSTRB
-      send_packet(.num_beats(2), .tkeep(tkeep), .tstrb(tstrb));
-    end
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_028_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 30; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats dist {1 := 10, [2:15] := 40, [16:63] := 30,
+                         [64:255] := 15, `MAX_PACKET_BEATS := 5};
+    }) `uvm_fatal("SEQ/RAND", "TC_028 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_08: TID Interleaving ════════════════════════════════════════════
+// ── REQ_MST_08 — merging prohibition ─────────────────────────────────────────
 
-// TC_MST_029: Change TID mid-packet (violation)
+// TC_MST_029 — Zero-gap boundary, SAME TID/TDEST. The hardest merging case:
+// only TLAST distinguishes the two packets.
 class axi_stream_master_vip_tc_mst_029_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_029_seq)
-  function new(string name = "tc_mst_029"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_029] TID Interleaving — TID change mid-packet (violation)", UVM_MEDIUM)
-    send_violation_packet(.change_tid_mid_packet(1), .num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_029_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 6; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      id   == 8'hA5;    // held constant across every packet
+      dest == 4'h3;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_029 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_030: Two interleaved streams (TID=0 and TID=1)
+// TC_MST_030 — Zero-gap boundary, DIFFERENT TID.
 class axi_stream_master_vip_tc_mst_030_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_030_seq)
-  function new(string name = "tc_mst_030"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_030] TID Interleaving — 2 streams TID=0 and TID=1", UVM_MEDIUM)
-    for (int i = 0; i < 10; i++) begin
-      send_clean_packet(.num_beats(4), .tid(8'h00));
-      send_clean_packet(.num_beats(4), .tid(8'h01));
-    end
-  endtask
+  int unsigned n;
+  function new(string name = "axi_stream_master_vip_tc_mst_030_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 8; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:6]};
+      id   == local::n;     // TID changes every packet
+      dest == 4'h1;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_030 randomize failed")
+    n++;
+  endfunction
 endclass
 
-// TC_MST_031: Four interleaved streams
+// TC_MST_031 — Zero-gap boundary, DIFFERENT TDEST.
 class axi_stream_master_vip_tc_mst_031_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_031_seq)
-  function new(string name = "tc_mst_031"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_031] TID Interleaving — 4 streams TID=0..3", UVM_MEDIUM)
-    for (int i = 0; i < 8; i++) begin
-      send_clean_packet(.num_beats(4), .tid(8'h00));
-      send_clean_packet(.num_beats(4), .tid(8'h01));
-      send_clean_packet(.num_beats(4), .tid(8'h02));
-      send_clean_packet(.num_beats(4), .tid(8'h03));
-    end
-  endtask
+  int unsigned n;
+  function new(string name = "axi_stream_master_vip_tc_mst_031_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 8; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:6]};
+      id   == 8'h11;
+      dest == (local::n % 16);   // TDEST changes every packet
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_031 randomize failed")
+    n++;
+  endfunction
 endclass
 
-// TC_MST_032: Max TID value (TID=0xFF)
+// TC_MST_032 — Four TID values round-robin; per-stream queues must stay isolated.
 class axi_stream_master_vip_tc_mst_032_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_032_seq)
-  function new(string name = "tc_mst_032"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_032] TID Interleaving — max TID=0xFF", UVM_MEDIUM)
-    send_clean_packet(.num_beats(4), .tid(8'hFF));
-    send_clean_packet(.num_beats(4), .tid(8'h00));
-    send_clean_packet(.num_beats(4), .tid(8'hFF));
-  endtask
+  int unsigned n;
+  function new(string name = "axi_stream_master_vip_tc_mst_032_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 20; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:10]};
+      id inside {8'h01, 8'h02, 8'h03, 8'h04};
+      id == 8'h01 + (local::n % 4);
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[0:2]};
+    }) `uvm_fatal("SEQ/RAND", "TC_032 randomize failed")
+    n++;
+  endfunction
 endclass
 
-// ═══ REQ_MST_09: Continuous Packets ══════════════════════════════════════════
+// ── REQ_MST_09 — TKEEP null bytes ────────────────────────────────────────────
 
-// TC_MST_033: Continuous packet mode — all beats valid (TKEEP=1111)
+// TC_MST_033 — Sparse stream: full TKEEP space.
 class axi_stream_master_vip_tc_mst_033_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_033_seq)
-  function new(string name = "tc_mst_033"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_033] Continuous Pkts — TKEEP=1111 all beats", UVM_MEDIUM)
-    repeat(5) send_packet(.num_beats(8), .tkeep('1), .tstrb('1));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_033_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 15; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[2:12]}; })
+      `uvm_fatal("SEQ/RAND", "TC_033 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_034: Continuous packet mode — TID=same across all packets
+// TC_MST_034 — Null packet: TLAST with TKEEP all-zero.
 class axi_stream_master_vip_tc_mst_034_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_034_seq)
-  function new(string name = "tc_mst_034"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_034] Continuous Pkts — same TID across all packets", UVM_MEDIUM)
-    repeat(10) send_clean_packet(.num_beats(4), .tid(8'h05));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_034_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 5; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats == 1;
+      foreach (keep[i]) keep[i] == '0;
+      foreach (strb[i]) strb[i] == '0;   // TSTRB=1 would require TKEEP=1
+    }) `uvm_fatal("SEQ/RAND", "TC_034 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_035: Continuous packet violation — TID changes while TLAST=0
+// TC_MST_035 — Unaligned start: first beat TKEEP != all-ones.
 class axi_stream_master_vip_tc_mst_035_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_035_seq)
-  function new(string name = "tc_mst_035"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_035] Continuous Pkts Violation — TID change while TLAST=0", UVM_MEDIUM)
-    send_violation_packet(.change_tid_mid_packet(1), .num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_035_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 10; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      keep[0] inside {4'b0010, 4'b0100, 4'b1000, 4'b0110, 4'b1100};
+    }) `uvm_fatal("SEQ/RAND", "TC_035 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_036: Continuous packet violation — null byte while TLAST=0
+// TC_MST_036 — Fully dense TKEEP (all-ones) boundary case.
 class axi_stream_master_vip_tc_mst_036_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_036_seq)
-  function new(string name = "tc_mst_036"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_036] Continuous Pkts Violation — null byte TKEEP=0 while TLAST=0", UVM_MEDIUM)
-    // Null byte in mid-packet where TKEEP is restricted in cont_pkt_mode
-    send_packet(.num_beats(4), .tkeep(4'b1110), .tstrb(4'b1110));  // TKEEP[0]=0 mid-packet
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_036_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 10; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[4:16]};
+      foreach (keep[i]) keep[i] == '1;
+      foreach (strb[i]) strb[i] == '1;
+    }) `uvm_fatal("SEQ/RAND", "TC_036 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_10: Reset Behavior ══════════════════════════════════════════════
+// ── REQ_MST_10 — TSTRB position bytes ────────────────────────────────────────
 
-// TC_MST_037: VIP outputs idle during reset
+// TC_MST_037 — Legal TKEEP x TSTRB cross product.
 class axi_stream_master_vip_tc_mst_037_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_037_seq)
-  function new(string name = "tc_mst_037"); super.new(name); endfunction
-  task body();
-    // tb_top controls reset — this sequence just verifies VIP behaves correctly post-reset
-    `uvm_info("SEQ", "[TC_MST_037] Reset — send first packet after reset de-assertion", UVM_MEDIUM)
-    send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_037_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 20; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[2:8]}; })
+      `uvm_fatal("SEQ/RAND", "TC_037 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_038: Reset mid-session (mid-simulation reset)
+// TC_MST_038 — Position bytes only: TKEEP=1, TSTRB=0 on every lane.
 class axi_stream_master_vip_tc_mst_038_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_038_seq)
-  function new(string name = "tc_mst_038"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_038] Reset — multiple packets across reset event", UVM_MEDIUM)
-    repeat(3) send_clean_packet(.num_beats(4));  // pre-reset
-    // post-reset sends handled by base test
-    repeat(3) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_038_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 8; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      foreach (keep[i]) keep[i] == '1;
+      foreach (strb[i]) strb[i] == '0;   // transported, but not payload
+    }) `uvm_fatal("SEQ/RAND", "TC_038 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_039: Single packet immediately after ARESETn deasserts
+// TC_MST_039 — NEGATIVE: reserved encoding TKEEP=0 / TSTRB=1.
+// Expect CHK/RESERVED_QUAL.
 class axi_stream_master_vip_tc_mst_039_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_039_seq)
-  function new(string name = "tc_mst_039"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_039] Reset — first packet must wait 1 cycle after ARESETn", UVM_MEDIUM)
-    send_clean_packet(.num_beats(1));
-    send_clean_packet(.num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_039_seq"); super.new(name); endfunction
+  function bit is_negative(); return 1; endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    item.c_legal.constraint_mode(0);   // MUST precede randomize()
+    if (!item.randomize() with {
+      inject_reserved_qual == 1;
+      inject_tvalid_drop == 0;   // pin: constraint_mode(0) freed every knob
+      inject_parity_fault == 0;   // pin: constraint_mode(0) freed every knob
+      inject_payload_mutate == 0;   // pin: constraint_mode(0) freed every knob
+      packet_beats inside {[1:4]};
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_039 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_040: Multiple resets with packet boundary verification
+// TC_MST_040 — Data, position and null bytes coexisting in one beat.
 class axi_stream_master_vip_tc_mst_040_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_040_seq)
-  function new(string name = "tc_mst_040"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_040] Reset — stress test across many packets", UVM_MEDIUM)
-    repeat(50) send_clean_packet(.num_beats(2));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_040_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 12; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:6]};
+      foreach (keep[i]) keep[i] == 4'b1110;   // lane 0 null
+      foreach (strb[i]) strb[i] == 4'b1010;   // mix of data and position lanes
+    }) `uvm_fatal("SEQ/RAND", "TC_040 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_11: TWAKEUP Timing ══════════════════════════════════════════════
+// ── REQ_MST_11 — TID/TDEST stability ─────────────────────────────────────────
 
-// TC_MST_041: TWAKEUP asserted 1 cycle before TVALID
 class axi_stream_master_vip_tc_mst_041_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_041_seq)
-  function new(string name = "tc_mst_041"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_041] TWAKEUP — standard 1-cycle lead before TVALID", UVM_MEDIUM)
-    repeat(10) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_041_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 12; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[4:16]}; })
+      `uvm_fatal("SEQ/RAND", "TC_041 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_042: TWAKEUP deasserted correctly after packet
+// TC_MST_042 — TID value-space sweep.
 class axi_stream_master_vip_tc_mst_042_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_042_seq)
-  function new(string name = "tc_mst_042"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_042] TWAKEUP — deassert after last transfer of packet", UVM_MEDIUM)
-    send_clean_packet(.num_beats(8));
-    send_clean_packet(.num_beats(4));
-  endtask
+  int unsigned n;
+  function new(string name = "axi_stream_master_vip_tc_mst_042_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 24; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:6]};
+      id == ((local::n * 11) % 256);   // stride the 8-bit TID space
+    }) `uvm_fatal("SEQ/RAND", "TC_042 randomize failed")
+    n++;
+  endfunction
 endclass
 
-// TC_MST_043: TWAKEUP held across back-to-back packets
+// TC_MST_043 — TDEST routing sweep.
 class axi_stream_master_vip_tc_mst_043_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_043_seq)
-  function new(string name = "tc_mst_043"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_043] TWAKEUP — held HIGH across consecutive packets", UVM_MEDIUM)
-    repeat(8) send_clean_packet(.num_beats(4));
-  endtask
+  int unsigned n;
+  function new(string name = "axi_stream_master_vip_tc_mst_043_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 16; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:6]};
+      dest == (local::n % 16);   // cover all 16 TDEST values
+    }) `uvm_fatal("SEQ/RAND", "TC_043 randomize failed")
+    n++;
+  endfunction
 endclass
 
-// TC_MST_044: TWAKEUP parity correctness (TWAKEUPCHK = ~TWAKEUP)
+// ── REQ_MST_12 — TWAKEUP ─────────────────────────────────────────────────────
+
+// TC_MST_044 — Wakeup lead: TWAKEUP >= 1 cycle before TVALID.
 class axi_stream_master_vip_tc_mst_044_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_044_seq)
-  function new(string name = "tc_mst_044"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_044] TWAKEUP — TWAKEUPCHK odd parity throughout", UVM_MEDIUM)
-    repeat(5) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_044_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 12; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:6]};
+      wakeup_lead_cycles inside {[1:8]};
+    }) `uvm_fatal("SEQ/RAND", "TC_044 randomize failed")
+  endfunction
 endclass
 
-// ═══ REQ_MST_12: AXI5 Parity Integrity ═══════════════════════════════════════
-
-// TC_MST_045: TDATACHK parity injection (1-bit flip)
+// TC_MST_045 — Wakeup hold across an outstanding handshake.
 class axi_stream_master_vip_tc_mst_045_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_045_seq)
-  function new(string name = "tc_mst_045"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_045] AXI5 Parity — inject TDATACHK error on byte 0", UVM_MEDIUM)
-    send_violation_packet(.parity_inject_error(1), .parity_error_byte_idx(0), .num_beats(16));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_045_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 10; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[2:8]};
+      wakeup_lead_cycles == 1;
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] inside {[5:40]};
+    }) `uvm_fatal("SEQ/RAND", "TC_045 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_046: All parity signals correct throughout long stream
+// TC_MST_046 — Wakeup deassertion when no further transfers are required.
 class axi_stream_master_vip_tc_mst_046_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_046_seq)
-  function new(string name = "tc_mst_046"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_046] AXI5 Parity — all parity correct, 100-packet stream", UVM_MEDIUM)
-    repeat(100) send_clean_packet(.num_beats(4));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_046_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 6; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with {
+      packet_beats inside {[1:4]};
+      wakeup_lead_cycles inside {[2:6]};
+    }) `uvm_fatal("SEQ/RAND", "TC_046 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_047: TREADYCHK verified against DUT TREADY
+// ── REQ_MST_13 / REQ_MST_14 — parity ─────────────────────────────────────────
+
+// TC_MST_047 — Odd parity generation across all check signals.
 class axi_stream_master_vip_tc_mst_047_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_047_seq)
-  function new(string name = "tc_mst_047"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_047] AXI5 Parity — TREADYCHK=~TREADY verified per cycle", UVM_MEDIUM)
-    repeat(20) send_clean_packet(.num_beats(8));
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_047_seq"); super.new(name); endfunction
+  constraint c_pkts { num_packets == 20; }
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    if (!item.randomize() with { packet_beats inside {[2:16]}; })
+      `uvm_fatal("SEQ/RAND", "TC_047 randomize failed")
+  endfunction
 endclass
 
-// TC_MST_048: Full parity regression — all signals across all conditions
+// TC_MST_048 — NEGATIVE: flip one TDATACHK bit. Expect CHK/PARITY.
+// Sparse TKEEP is forced so parity coverage of NULL-BYTE lanes is exercised at
+// the same time (REQ_MST_14: parity must be correct on lanes that are not data).
 class axi_stream_master_vip_tc_mst_048_seq extends axi_stream_master_vip_base_sequence;
   `uvm_object_utils(axi_stream_master_vip_tc_mst_048_seq)
-  function new(string name = "tc_mst_048"); super.new(name); endfunction
-  task body();
-    `uvm_info("SEQ", "[TC_MST_048] AXI5 Parity — full regression 15 random pkts", UVM_MEDIUM)
-    repeat(15) begin
-      axi_stream_master_vip_seq_item pkt;
-      pkt = axi_stream_master_vip_seq_item::type_id::create("pkt");
-      start_item(pkt);
-      if (!pkt.randomize() with { packet_length <= 8; })
-        `uvm_fatal("RAND","randomize failed tc_mst_048")
-      finish_item(pkt);
-    end
-  endtask
+  function new(string name = "axi_stream_master_vip_tc_mst_048_seq"); super.new(name); endfunction
+  function bit is_negative(); return 1; endfunction
+  function void randomize_item(axi_stream_master_vip_seq_item item);
+    item.c_legal.constraint_mode(0);   // MUST precede randomize()
+    if (!item.randomize() with {
+      inject_parity_fault == 1;
+      inject_tvalid_drop == 0;   // pin: constraint_mode(0) freed every knob
+      inject_reserved_qual == 0;   // pin: constraint_mode(0) freed every knob
+      inject_payload_mutate == 0;   // pin: constraint_mode(0) freed every knob
+      packet_beats inside {[2:6]};
+      foreach (keep[i]) keep[i] != '1;   // sparse: null lanes present
+      foreach (inter_beat_delay[i]) inter_beat_delay[i] == 0;
+    }) `uvm_fatal("SEQ/RAND", "TC_048 randomize failed")
+  endfunction
 endclass
+
+`endif
