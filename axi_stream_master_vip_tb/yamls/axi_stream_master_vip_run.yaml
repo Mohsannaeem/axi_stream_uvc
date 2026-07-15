@@ -1,9 +1,9 @@
-# EDA Buddy Runtime Config (Auto-Generated)
 runtime:
   common_args:
-  - +UVM_VERBOSITY=UVM_MEDIUM
+  - +UVM_VERBOSITY=UVM_HIGH
   - +UVM_MAX_QUIT_COUNT=10
-  - +UVM_TIMEOUT=100000000
+  #- +UVM_TIMEOUT=100000000
+  - +TRACKER_DIR=$$RUN_DIR
   tool_args:
     vcs:
     - -l simv.log
@@ -225,7 +225,7 @@ groups:
     - axi_stream_master_vip_tc_mst_005_test
     hooks:
       pre: ''
-      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_SMOKE --total {total} --passed {passed} --failed {failed}'
+      post: python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_SMOKE --total {total} --passed {passed} --failed {failed}
   full_regression:
     tests:
     - axi_stream_master_vip_base_test
@@ -279,4 +279,7 @@ groups:
     - axi_stream_master_vip_tc_mst_048_test
     hooks:
       pre: ''
-      post: 'python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}'
+      post: python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}
+hooks:
+  pre: ''
+  post: ''

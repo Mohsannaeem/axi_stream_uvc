@@ -1,434 +1,336 @@
-// AXI-Stream Slave VIP Monitor
-// Observes all DUT Master outputs passively. Checks protocol compliance.
-// Drives 12 coverage groups. Sends received items to scoreboard via ap.
+// =============================================================================
+// AXI5-Stream Slave VIP — Monitor
+// Observes the full interface, reconstructs received packets, runs the DUT
+// (Master) compliance checkers, samples functional coverage, and drives a
+// tracker. A beat is ACCEPTED when observed TVALID && TREADY on a rising edge.
+// =============================================================================
+`ifndef AXI_STREAM_SLAVE_VIP_MONITOR_SV
+`define AXI_STREAM_SLAVE_VIP_MONITOR_SV
+
+typedef class axi_stream_slave_vip_scoreboard;
+
 class axi_stream_slave_vip_monitor extends uvm_monitor;
   `uvm_component_utils(axi_stream_slave_vip_monitor)
 
-  virtual axi_stream_slave_vip_if vif;
-  axi_stream_slave_vip_agent_config cfg;
   uvm_analysis_port #(axi_stream_slave_vip_seq_item) ap;
+  axi_stream_slave_vip_agent_config cfg;
 
-  // ── Payload snapshot (captured on first TVALID=1 of each pending transfer) ──
-  logic [AXI_DATA_W-1:0]   snap_tdata;
-  logic [AXI_DATA_W/8-1:0] snap_tkeep, snap_tstrb;
-  logic                     snap_tlast;
-  logic [AXI_ID_W-1:0]     snap_tid;
-  logic [AXI_DEST_W-1:0]   snap_tdest;
-  logic [AXI_USER_W-1:0]   snap_tuser;
-  bit                       snap_valid = 0;
+  protected virtual axi_stream_slave_vip_if #(
+    .DATA_W(`AXI_DATA_W), .ID_W(`AXI_ID_W), .DEST_W(`AXI_DEST_W),
+    .USER_W(`AXI_USER_W), .HAS_PAR(`AXI_HAS_PAR), .HAS_WAKE(`AXI_HAS_WAKE)
+  ) vif;
 
-  // ── Per-stream ordering tracking ─────────────────────────────────────────────
-  int unsigned stream_beat_cnt [logic [(AXI_ID_W+AXI_DEST_W-1):0]];
+  protected axi_stream_slave_vip_scoreboard sb_h;
+  uvm_tracker trk;
 
-  // ── Coverage group tracking variables ────────────────────────────────────────
-  int  tready_stall_depth        = 0;  // cycles TVALID=1, TREADY=0
-  int  pkt_beat_count            = 0;
-  bit  pkt_back_to_back          = 0;
-  bit  prev_tlast                = 1;  // start as if prior packet ended
-  int  twakeup_lead_cycles       = 0;
-  bit  twakeup_seen              = 0;
-  int  active_tid_count          = 1;
-  int  beats_per_tid_before_sw   = 1;
-  int  null_pkt_ctx              = 0;  // 0=isolated 1=after-data 2=before-data 3=b2b-null
-  bit  prev_pkt_was_null         = 0;
-  int  stall_beat_position       = 0;  // 0=first 1=mid 2=last
-  bit  continuous_pkt_viol       = 0;  // 0=no viol 1=TID 2=null_byte 3=TSTRB
-  int  handshake_ordering        = 0;  // 0=TVALID-first 1=TREADY-first 2=simul
+  // ── Reconstruction + coverage state ───────────────────────────────────────
+  protected int unsigned obs_packets, obs_beats, obs_txns;
+  protected bit          in_reset_prev;
+  protected int unsigned cov_stall, cov_pkt_len, cov_wake_lead;
+  protected int unsigned cov_ready_mode;      // sampled from a config/observed hint
+  protected int unsigned cov_reset_ctx;       // 0 idle,1 mid-packet,2 mid-handshake
+  protected int unsigned cov_clk_gap;         // clock-off window (REQ_SLV_15)
+  protected logic [`AXI_STRB_W-1:0] cov_keep, cov_strb;
+  protected logic [`AXI_ID_W-1:0]   cov_id;
+  protected logic [`AXI_DEST_W-1:0] cov_dest;
+  protected bit          cov_parity_bad, cov_id_changed, cov_gap_zero;
 
-  // ── Packet tracker file ───────────────────────────────────────────────────────
-  int tracker_fd;
-  int pkt_count = 0;
-  int null_count = 0;
-  int total_beats = 0;
-
-  // ── Coverage Groups ───────────────────────────────────────────────────────────
-
-  // REQ_SLV_VIP_01 + REQ_SLV_VIP_11
-  covergroup cg_tready_backpressure_depth;
-    cp_stall: coverpoint tready_stall_depth {
-      bins immediate    = {0};
-      bins short_stall  = {[1:4]};
-      bins mid_stall    = {[5:16]};
-      bins long_stall   = {[17:32]};
-    }
-    cp_pos: coverpoint stall_beat_position {
-      bins first_beat = {0};
-      bins mid_beat   = {1};
-      bins last_beat  = {2};
-    }
-    cx_stall_pos: cross cp_stall, cp_pos;
+  // ── Covergroups: one per plan coverage_group (10 total) ───────────────────
+  covergroup cg_tready_profile;
+    option.per_instance = 1;
+    cp_mode  : coverpoint cov_ready_mode { bins b_m[] = {[0:4]}; }
+    cp_stall : coverpoint cov_stall {
+      bins b_zero={0}; bins b_one={1}; bins b_short={[2:15]};
+      bins b_med={[16:99]}; bins b_long={[100:$]}; }
+    x_mode_stall : cross cp_mode, cp_stall;
   endgroup
-
-  // REQ_SLV_VIP_01 + REQ_SLV_VIP_02
-  covergroup cg_tvalid_to_tready_gap;
-    cp_gap: coverpoint tready_stall_depth {
-      bins simul        = {0};
-      bins one_cycle    = {1};
-      bins short_gap    = {[2:4]};
-      bins mid_gap      = {[5:16]};
-      bins long_gap     = {[17:32]};
-    }
+  covergroup cg_dut_tvalid_stability;
+    option.per_instance = 1;
+    cp_hold : coverpoint cov_stall { bins b_none={0}; bins b_brief={[1:15]}; bins b_long={[16:$]}; }
   endgroup
-
-  // REQ_SLV_VIP_03
-  covergroup cg_payload_stability_window;
-    cp_window: coverpoint tready_stall_depth {
-      bins one_cycle    = {1};
-      bins short_window = {[2:4]};
-      bins mid_window   = {[5:16]};
-      bins long_window  = {[17:32]};
-    }
+  covergroup cg_dut_payload_stability;
+    option.per_instance = 1;
+    cp_hold : coverpoint cov_stall { bins b_none={0}; bins b_brief={[1:5]}; bins b_long={[6:$]}; }
+    cp_sparse : coverpoint cov_keep { bins b_ones={'1}; bins b_zero={'0}; bins b_sparse=default; }
+    x_hold_sparse : cross cp_hold, cp_sparse;
   endgroup
-
-  // REQ_SLV_VIP_04
-  covergroup cg_packet_size_distribution;
-    cp_len: coverpoint pkt_beat_count {
-      bins single_beat = {1};
-      bins short_burst = {[2:8]};
-      bins mid_burst   = {[9:64]};
-      bins long_burst  = {[65:256]};
-    }
-    cp_b2b: coverpoint pkt_back_to_back {
-      bins isolated     = {0};
-      bins back_to_back = {1};
-    }
-    cx_len_b2b: cross cp_len, cp_b2b;
+  covergroup cg_reset;
+    option.per_instance = 1;
+    cp_ctx : coverpoint cov_reset_ctx { bins b_idle={0}; bins b_mid_pkt={1}; bins b_mid_hs={2}; }
   endgroup
-
-  // REQ_SLV_VIP_05
-  covergroup cg_reset_injection_context;
-    cp_ctx: coverpoint null_pkt_ctx {
-      bins idle        = {0};
-      bins mid_pkt     = {1};
-      bins at_handshk  = {2};
-    }
-    cp_dur: coverpoint tready_stall_depth {
-      bins one_cycle   = {1};
-      bins short_reset = {[2:4]};
-      bins long_reset  = {[5:16]};
-    }
-    cx_ctx_dur: cross cp_ctx, cp_dur;
+  covergroup cg_packet_length;
+    option.per_instance = 1;
+    cp_len : coverpoint cov_pkt_len {
+      bins b_one={1}; bins b_two={2}; bins b_small={[3:15]};
+      bins b_med={[16:63]}; bins b_large={[64:255]}; bins b_max={`MAX_PACKET_BEATS}; }
   endgroup
-
-  // REQ_SLV_VIP_06
-  covergroup cg_byte_qualifier_patterns;
-    cp_tkeep: coverpoint snap_tkeep {
-      bins all_data     = {'1};
-      bins all_null     = {'0};
-      bins sparse_low   = {4'b0001, 4'b0011};
-      bins sparse_high  = {4'b1100, 4'b1110};
-      bins mixed        = default;
-    }
-    cp_tstrb: coverpoint snap_tstrb {
-      bins all_data     = {'1};
-      bins positional   = {'0};
-      bins mixed        = default;
-    }
-    cx_qualifier: cross cp_tkeep, cp_tstrb;
+  covergroup cg_stream_recon;
+    option.per_instance = 1;
+    cp_gap : coverpoint cov_gap_zero { bins b_zero_gap={1}; bins b_gap={0}; }
+    cp_idc : coverpoint cov_id_changed { bins b_same={0}; bins b_changed={1}; }
+    x_merge : cross cp_gap, cp_idc;
   endgroup
-
-  // REQ_SLV_VIP_07
-  covergroup cg_twakeup_timing;
-    cp_lead: coverpoint twakeup_lead_cycles {
-      bins simultaneous = {0};
-      bins one_early    = {1};
-      bins two_or_more  = {[2:8]};
-    }
+  covergroup cg_byte_qualifiers;
+    option.per_instance = 1;
+    cp_keep : coverpoint cov_keep { bins b_ones={'1}; bins b_zero={'0}; bins b_sparse=default; }
+    cp_strb : coverpoint cov_strb { bins b_ones={'1}; bins b_zero={'0}; bins b_sparse=default; }
+    x_qual : cross cp_keep, cp_strb;
   endgroup
-
-  // REQ_SLV_VIP_08
-  covergroup cg_stream_interleaving_depth;
-    cp_streams: coverpoint active_tid_count {
-      bins one_stream  = {1};
-      bins two_streams = {2};
-      bins four_plus   = {[4:16]};
-    }
-    cp_beats_per_tid: coverpoint beats_per_tid_before_sw {
-      bins max_interleave = {1};
-      bins short_run      = {[2:4]};
-      bins long_run       = {[5:16]};
-    }
-    cx_depth: cross cp_streams, cp_beats_per_tid;
+  covergroup cg_wakeup;
+    option.per_instance = 1;
+    cp_lead : coverpoint cov_wake_lead { bins b_one={1}; bins b_two={2}; bins b_few={[3:7]}; bins b_many={[8:$]}; }
   endgroup
-
-  // REQ_SLV_VIP_09
-  covergroup cg_null_packet_context;
-    cp_null_ctx: coverpoint null_pkt_ctx {
-      bins isolated         = {0};
-      bins after_data       = {1};
-      bins before_data      = {2};
-      bins back_to_back_null= {3};
-    }
+  covergroup cg_parity;
+    option.per_instance = 1;
+    cp_detect : coverpoint cov_parity_bad { bins b_ok={0}; bins b_fault={1}; }
+    cp_dens   : coverpoint cov_keep { bins b_dense={'1}; bins b_null={'0}; bins b_sparse=default; }
+    x_par : cross cp_detect, cp_dens;
   endgroup
-
-  // REQ_SLV_VIP_10
-  covergroup cg_parity_lane_coverage;
-    cp_lane: coverpoint snap_tkeep {
-      bins lane0_active = {4'b???1};
-      bins lane1_active = {4'b??1?};
-      bins lane2_active = {4'b?1??};
-      bins lane3_active = {4'b1???};
-      bins lane0_null   = {4'b???0};
-      bins lane1_null   = {4'b??0?};
-    }
-    cp_tready_edge: coverpoint handshake_ordering {
-      bins tvalid_first  = {0};
-      bins tready_first  = {1};
-      bins simultaneous  = {2};
-    }
-  endgroup
-
-  // REQ_SLV_VIP_11
-  covergroup cg_intra_packet_backpressure_position;
-    cp_stall_pos: coverpoint stall_beat_position {
-      bins first_beat      = {0};
-      bins mid_beat        = {1};
-      bins penultimate_beat= {2};
-      bins last_beat       = {3};
-    }
-  endgroup
-
-  // REQ_SLV_VIP_12
-  covergroup cg_continuous_packets_violations;
-    cp_viol: coverpoint continuous_pkt_viol {
-      bins no_violation   = {0};
-      bins tid_change     = {1};
-      bins null_byte_mid  = {2};
-      bins tstrb_present  = {3};
-    }
+  covergroup cg_recovery;
+    option.per_instance = 1;
+    cp_gap : coverpoint cov_clk_gap { bins b_none={0}; bins b_short={[1:99]}; bins b_long={[100:$]}; }
+    cp_ctx : coverpoint cov_reset_ctx { bins b_idle={0}; bins b_mid_pkt={1}; bins b_mid_hs={2}; }
+    x_recov : cross cp_gap, cp_ctx;
   endgroup
 
   function new(string name, uvm_component parent);
     super.new(name, parent);
-    cg_tready_backpressure_depth        = new();
-    cg_tvalid_to_tready_gap             = new();
-    cg_payload_stability_window         = new();
-    cg_packet_size_distribution         = new();
-    cg_reset_injection_context          = new();
-    cg_byte_qualifier_patterns          = new();
-    cg_twakeup_timing                   = new();
-    cg_stream_interleaving_depth        = new();
-    cg_null_packet_context              = new();
-    cg_parity_lane_coverage             = new();
-    cg_intra_packet_backpressure_position = new();
-    cg_continuous_packets_violations    = new();
+    ap = new("ap", this);
+    cg_tready_profile=new(); cg_dut_tvalid_stability=new(); cg_dut_payload_stability=new();
+    cg_reset=new(); cg_packet_length=new(); cg_stream_recon=new(); cg_byte_qualifiers=new();
+    cg_wakeup=new(); cg_parity=new(); cg_recovery=new();
   endfunction
 
   function void build_phase(uvm_phase phase);
     super.build_phase(phase);
-    ap = new("ap", this);
-    if (!uvm_config_db #(virtual axi_stream_slave_vip_if)::get(this, "", "vif", vif))
-      `uvm_fatal("CFG", "No VIF for axi_stream_slave_vip_monitor")
     if (!uvm_config_db #(axi_stream_slave_vip_agent_config)::get(this, "", "cfg", cfg))
-      `uvm_fatal("CFG", "No CFG for axi_stream_slave_vip_monitor")
+      `uvm_fatal("MON/NOCFG", "agent_config not found in ConfigDB")
+    vif = cfg.vif;
+    trk = uvm_tracker::type_id::create("trk");
   endfunction
 
-  // ── Odd parity helpers ────────────────────────────────────────────────────────
-  function automatic logic byte_odd_parity(logic [7:0] b);
-    return ~^b;
-  endfunction
-
-  function automatic logic [AXI_DATA_W/8-1:0] compute_tdatachk(logic [AXI_DATA_W-1:0] d);
-    logic [AXI_DATA_W/8-1:0] chk;
-    for (int i = 0; i < AXI_DATA_W/8; i++)
-      chk[i] = byte_odd_parity(d[8*i +: 8]);
-    return chk;
-  endfunction
-
-  // ── Main run phase ────────────────────────────────────────────────────────────
-  task run_phase(uvm_phase phase);
-    axi_stream_slave_vip_seq_item item;
-    logic [AXI_DATA_W/8-1:0] exp_datachk;
-    logic exp_lastchk;
-
-    // Open tracker file
+  function void start_of_simulation_phase(uvm_phase phase);
+    super.start_of_simulation_phase(phase);
+    void'(uvm_config_db #(axi_stream_slave_vip_scoreboard)::get(null, "*", "sb", sb_h));
     if (cfg.enable_tracker) begin
-      tracker_fd = $fopen("slave_vip_packet_tracker.log", "w");
-      $fwrite(tracker_fd, "== AXI-Stream Slave VIP Packet Tracker ==\n");
+      trk.add_column("TIME",  14, "%t");
+      trk.add_column("KIND",   6, "%s");
+      trk.add_column("PKT",    6, "%0d");
+      trk.add_column("BEAT",   6, "%0d");
+      trk.add_column("TDATA", `TRK_COLW(`AXI_DATA_W), "%0h");
+      trk.add_column("KEEP",  `TRK_COLW(`AXI_STRB_W), "%0b");
+      trk.add_column("STRB",  `TRK_COLW(`AXI_STRB_W), "%0b");
+      trk.add_column("LAST",   5, "%0b");
+      trk.add_column("TID",   `TRK_COLW(`AXI_ID_W),   "%0h");
+      trk.add_column("STALL",  6, "%0d");
+      trk.add_column("PAR",    5, "%s");
+      trk.add_column("NOTE",  22, "%s");
+      trk.open(get_full_name(), cfg.tracker_dir);
     end
+  endfunction
 
-    // Wait for reset
-    @(posedge vif.ARESETn);
-    @(vif.cb_mon);
+  function void final_phase(uvm_phase phase);
+    super.final_phase(phase);
+    if (cfg.enable_tracker) trk.close();
+  endfunction
 
+  protected function void trk_row(string kind, int unsigned pkt, int unsigned beat,
+                                  int unsigned stall, string note);
+    string vals[$];
+    if (!cfg.enable_tracker) return;
+    vals.push_back($sformatf("%0t", $time));
+    vals.push_back(kind);
+    vals.push_back($sformatf("%0d", pkt));
+    vals.push_back($sformatf("%0d", beat));
+    vals.push_back($sformatf("%0h", vif.cb_mon.TDATA));
+    vals.push_back($sformatf("%0b", vif.cb_mon.TKEEP));
+    vals.push_back($sformatf("%0b", vif.cb_mon.TSTRB));
+    vals.push_back($sformatf("%0b", vif.cb_mon.TLAST));
+    vals.push_back($sformatf("%0h", vif.cb_mon.TID));
+    vals.push_back($sformatf("%0d", stall));
+    vals.push_back(cov_parity_bad ? "BAD" : "OK");
+    vals.push_back(note);
+    trk.write_row(vals);
+  endfunction
+
+  protected function logic odd_parity_byte(logic [7:0] b); return ~(^b); endfunction
+
+  task run_phase(uvm_phase phase);
+    fork
+      chk_reset_tvalid();
+      chk_wakeup_lead();
+      observe();
+    join_none
+  endtask
+
+  // ── chk_reset_tvalid (REQ_SLV_06) ─────────────────────────────────────────
+  protected task chk_reset_tvalid();
+    forever begin
+      @(vif.cb_mon);
+      if (vif.cb_mon.ARESETn === 1'b0 && vif.cb_mon.TVALID === 1'b1)
+        `uvm_error("CHK/RESET_TVALID",
+                   "DUT drove TVALID HIGH while ARESETn LOW — Section 2.8.2")
+    end
+  endtask
+
+  // ── chk_wakeup_lead / hold (REQ_SLV_12) ───────────────────────────────────
+  protected task chk_wakeup_lead();
+    bit prev_valid, prev_wake;
+    if (!cfg.has_twakeup) return;
+    forever begin
+      @(vif.cb_mon);
+      if (vif.cb_mon.TVALID === 1'b1 && prev_valid === 1'b0 && prev_wake !== 1'b1)
+        `uvm_error("CHK/WAKE_LEAD",
+                   "DUT asserted TVALID without a leading TWAKEUP — Section 2.3")
+      if (prev_wake === 1'b1 && vif.cb_mon.TWAKEUP === 1'b0 &&
+          vif.cb_mon.TVALID === 1'b1 && vif.cb_mon.TREADY !== 1'b1)
+        `uvm_error("CHK/WAKE_HOLD",
+                   "DUT dropped TWAKEUP while TVALID HIGH and TREADY not yet asserted — Section 2.3")
+      if (vif.cb_mon.TVALID === 1'b1 && prev_valid === 1'b0) cov_wake_lead = 1;
+      prev_valid = vif.cb_mon.TVALID;
+      prev_wake  = vif.cb_mon.TWAKEUP;
+    end
+  endtask
+
+  // ── Main observation loop ─────────────────────────────────────────────────
+  protected task observe();
+    logic [`AXI_DATA_W-1:0] latched_data; logic [`AXI_STRB_W-1:0] latched_keep, latched_strb;
+    logic latched_last; logic [`AXI_ID_W-1:0] latched_id; logic [`AXI_DEST_W-1:0] latched_dest;
+    bit valid_pending, prev_valid; int unsigned stall, gap;
+    logic [`AXI_ID_W-1:0] last_id; logic [`AXI_DEST_W-1:0] last_dest; bit have_last;
+    int unsigned pkt_beats;
+
+    new_packet_ctx(pkt_beats);
     forever begin
       @(vif.cb_mon);
 
-      // ── Reset protocol check ─────────────────────────────────────────────────
-      if (vif.cb_mon.ARESETn === 1'b0) begin
-        if (vif.cb_mon.TVALID === 1'b1)
-          `uvm_error("MON_RESET", "TVALID_DURING_RESET_VIOLATION: DUT Master drove TVALID=1 during ARESETn=0!")
-        snap_valid = 0;
-        tready_stall_depth = 0;
+      if (vif.cb_mon.ARESETn !== 1'b1) begin
+        if (valid_pending || pkt_beats > 0) cov_reset_ctx = valid_pending ? 2 : 1;
+        cg_reset.sample();
+        if (!in_reset_prev) begin
+          in_reset_prev = 1;
+          if (sb_h != null) sb_h.note_reset();
+          trk_row("RST", obs_packets, pkt_beats, stall, "reset flush");
+        end
+        valid_pending = 0; prev_valid = 0; stall = 0;
+        new_packet_ctx(pkt_beats);
         continue;
       end
+      in_reset_prev = 0;
 
-      // ── TVALID pending window tracking ───────────────────────────────────────
-      if (vif.cb_mon.TVALID === 1'b1 && vif.cb_mon.TREADY !== 1'b1) begin
-        tready_stall_depth++;
+      // TVALID rising edge: latch payload for the stability checks.
+      if (vif.cb_mon.TVALID === 1'b1 && prev_valid === 1'b0) begin
+        latched_data=vif.cb_mon.TDATA; latched_keep=vif.cb_mon.TKEEP; latched_strb=vif.cb_mon.TSTRB;
+        latched_last=vif.cb_mon.TLAST; latched_id=vif.cb_mon.TID; latched_dest=vif.cb_mon.TDEST;
+        valid_pending = 1; stall = 0;
+      end
 
-        if (snap_valid) begin
-          // ── Payload stability check (XOR snapshot comparison) ───────────────
-          if (vif.cb_mon.TDATA  !== snap_tdata  ||
-              vif.cb_mon.TKEEP  !== snap_tkeep  ||
-              vif.cb_mon.TSTRB  !== snap_tstrb  ||
-              vif.cb_mon.TLAST  !== snap_tlast  ||
-              vif.cb_mon.TID    !== snap_tid    ||
-              vif.cb_mon.TDEST  !== snap_tdest  ||
-              vif.cb_mon.TUSER  !== snap_tuser) begin
-            `uvm_error("MON_STAB", $sformatf(
-              "PAYLOAD_MUTATION during back-pressure! TDATA: 0x%08h→0x%08h TKEEP:%0b→%0b",
-              snap_tdata, vif.cb_mon.TDATA, snap_tkeep, vif.cb_mon.TKEEP))
-          end
-        end else begin
-          // First cycle of TVALID=1 — capture snapshot
-          snap_tdata  = vif.cb_mon.TDATA;
-          snap_tkeep  = vif.cb_mon.TKEEP;
-          snap_tstrb  = vif.cb_mon.TSTRB;
-          snap_tlast  = vif.cb_mon.TLAST;
-          snap_tid    = vif.cb_mon.TID;
-          snap_tdest  = vif.cb_mon.TDEST;
-          snap_tuser  = vif.cb_mon.TUSER;
-          snap_valid  = 1;
+      // chk_tvalid_stability (REQ_SLV_04): DUT must hold TVALID until TREADY.
+      if (valid_pending && prev_valid === 1'b1 && vif.cb_mon.TVALID === 1'b0) begin
+        `uvm_error("CHK/TVALID_STABILITY", $sformatf(
+          "DUT dropped TVALID before TREADY (after %0d stall cycles) — Section 2.2", stall))
+        trk_row("BEAT", obs_packets + 1, obs_beats + 1, stall, "CHK/TVALID_STABILITY");
+        valid_pending = 0;
+      end
 
-          // Determine handshake ordering
-          if (vif.cb_mon.TREADY !== 1'b1)
-            handshake_ordering = 0;  // TVALID-first
-          else
-            handshake_ordering = 2;  // simultaneous
+      // chk_payload_stability (REQ_SLV_05): payload frozen while VIP stalls.
+      if (valid_pending && vif.cb_mon.TVALID === 1'b1 && stall > 0) begin
+        if (vif.cb_mon.TDATA!==latched_data || vif.cb_mon.TKEEP!==latched_keep ||
+            vif.cb_mon.TSTRB!==latched_strb || vif.cb_mon.TLAST!==latched_last ||
+            vif.cb_mon.TID!==latched_id     || vif.cb_mon.TDEST!==latched_dest) begin
+          `uvm_error("CHK/PAYLOAD_STABILITY", $sformatf(
+            "DUT mutated payload while TVALID HIGH and handshake outstanding (stall=%0d) — Section 2.2.1",
+            stall))
+          trk_row("BEAT", obs_packets + 1, obs_beats + 1, stall, "CHK/PAYLOAD_STABILITY");
         end
+      end
 
-        // ── TWAKEUP tracking ─────────────────────────────────────────────────
-        if (cfg.has_wakeup && vif.cb_mon.TWAKEUP !== 1'b1 && !twakeup_seen)
-          twakeup_lead_cycles = 0;
-
-        // ── Byte qualifier check (reserved TKEEP=0/TSTRB=1) ──────────────────
-        for (int i = 0; i < AXI_DATA_W/8; i++) begin
-          if (vif.cb_mon.TKEEP[i] === 1'b0 && vif.cb_mon.TSTRB[i] === 1'b1)
-            `uvm_fatal("MON_QUAL", $sformatf(
-              "RESERVED_QUALIFIER_VIOLATION: TKEEP[%0d]=0, TSTRB[%0d]=1", i, i))
+      // chk_reserved_qual (REQ_SLV_10): TKEEP=0 & TSTRB=1 is reserved.
+      if (vif.cb_mon.TVALID === 1'b1) begin
+        if ((vif.cb_mon.TSTRB & ~vif.cb_mon.TKEEP) != '0) begin
+          `uvm_error("CHK/RESERVED_QUAL",
+                     "DUT drove reserved TKEEP=0/TSTRB=1 — Section 2.5")
+          trk_row("BEAT", obs_packets + 1, obs_beats + 1, stall, "CHK/RESERVED_QUAL");
         end
+      end
 
-        // ── Continuous_Packets mode: TID stability check ─────────────────────
-        if (cfg.continuous_pkt_mode && snap_valid && vif.cb_mon.TLAST !== 1'b1) begin
-          if (vif.cb_mon.TID !== snap_tid) begin
-            `uvm_error("MON_CONT", "CONTINUOUS_PKTS_TID_VIOLATION: TID changed while TLAST=0!")
-            continuous_pkt_viol = 1;
-          end
-          // Null byte in mid-packet (TKEEP not all-1)
-          if (vif.cb_mon.TKEEP !== {(AXI_DATA_W/8){1'b1}}) begin
-            `uvm_error("MON_CONT", "CONTINUOUS_PKTS_NULL_BYTE_VIOLATION: TKEEP not all-1 while TLAST=0!")
-            continuous_pkt_viol = 2;
-          end
+      // chk_parity (REQ_SLV_14): recompute odd parity over ALL lanes.
+      cov_parity_bad = 0;
+      if (cfg.has_parity && vif.cb_mon.TVALID === 1'b1) begin
+        logic [`AXI_STRB_W-1:0] exp_chk;
+        for (int i = 0; i < `AXI_STRB_W; i++) exp_chk[i] = odd_parity_byte(vif.cb_mon.TDATA[8*i +: 8]);
+        if (vif.cb_mon.TDATACHK !== exp_chk) begin
+          cov_parity_bad = 1;
+          `uvm_error("CHK/PARITY", $sformatf(
+            "DUT TDATACHK odd-parity mismatch: obs 0b%04b exp 0b%04b — Section 5.3",
+            vif.cb_mon.TDATACHK, exp_chk))
+          trk_row("BEAT", obs_packets + 1, obs_beats + 1, stall, "CHK/PARITY");
         end
+        if (vif.cb_mon.TVALIDCHK !== ~vif.cb_mon.TVALID)
+          `uvm_error("CHK/PARITY", "DUT TVALIDCHK not the inversion of TVALID — Section 5.3")
+      end
 
-        // ── AXI5 Parity verification ──────────────────────────────────────────
-        if (cfg.has_parity) begin
-          // TVALIDCHK: Check enable = ARESETn=1; expected = ~TVALID
-          if (vif.cb_mon.TVALIDCHK !== ~vif.cb_mon.TVALID)
-            `uvm_error("MON_PAR", $sformatf(
-              "PARITY_FAULT TVALIDCHK: got=%0b expected=%0b",
-              vif.cb_mon.TVALIDCHK, ~vif.cb_mon.TVALID))
-        end
-      end // TVALID pending window
-
-      // ── Handshake completion ─────────────────────────────────────────────────
+      // ── Beat accepted: TVALID && TREADY on this edge ─────────────────────
       if (vif.cb_mon.TVALID === 1'b1 && vif.cb_mon.TREADY === 1'b1) begin
-        total_beats++;
-        pkt_beat_count++;
-
-        // ── AXI5 parity checks on handshake beat ────────────────────────────
-        if (cfg.has_parity) begin
-          exp_datachk = compute_tdatachk(vif.cb_mon.TDATA);
-          exp_lastchk = ~vif.cb_mon.TLAST;
-          if (vif.cb_mon.TDATACHK !== exp_datachk)
-            `uvm_error("MON_PAR", $sformatf(
-              "PARITY_FAULT TDATACHK: got=0x%0h expected=0x%0h", vif.cb_mon.TDATACHK, exp_datachk))
-          if (vif.cb_mon.TLASTCHK !== exp_lastchk)
-            `uvm_error("MON_PAR", $sformatf(
-              "PARITY_FAULT TLASTCHK: got=%0b expected=%0b", vif.cb_mon.TLASTCHK, exp_lastchk))
-        end
-
-        // ── Build and send received item to scoreboard ───────────────────────
-        item = axi_stream_slave_vip_seq_item::type_id::create("rx_item");
-        item.tdata = vif.cb_mon.TDATA;
-        item.tkeep = vif.cb_mon.TKEEP;
-        item.tstrb = vif.cb_mon.TSTRB;
-        item.tlast = vif.cb_mon.TLAST;
-        item.tid   = vif.cb_mon.TID;
-        item.tdest = vif.cb_mon.TDEST;
-        item.tuser = vif.cb_mon.TUSER;
-        ap.write(item);
-
-        // ── Sample coverage groups ────────────────────────────────────────────
-        cg_tready_backpressure_depth.sample();
-        cg_tvalid_to_tready_gap.sample();
-        cg_payload_stability_window.sample();
-        cg_byte_qualifier_patterns.sample();
-        cg_parity_lane_coverage.sample();
-
-        // ── Packet boundary handling ──────────────────────────────────────────
-        if (vif.cb_mon.TLAST === 1'b1) begin
-          pkt_count++;
-          // Null packet check (all TKEEP=0)
-          if (vif.cb_mon.TKEEP === {(AXI_DATA_W/8){1'b0}}) begin
-            null_count++;
-            null_pkt_ctx = (prev_pkt_was_null) ? 3 : (pkt_beat_count == 1 ? 0 : 1);
-            prev_pkt_was_null = 1;
-          end else begin
-            null_pkt_ctx = (prev_pkt_was_null) ? 2 : 0;
-            prev_pkt_was_null = 0;
-          end
-
-          pkt_back_to_back = !prev_tlast; // prev cycle TLAST was 0 means same TVALID window
-          cg_packet_size_distribution.sample();
-          cg_null_packet_context.sample();
-
-          if (cfg.enable_tracker)
-            $fwrite(tracker_fd, "PKT#%0d: beats=%0d null=%0b TID=0x%0h TDEST=0x%0h\n",
-                    pkt_count, pkt_beat_count,
-                    (vif.cb_mon.TKEEP === {(AXI_DATA_W/8){1'b0}}),
-                    vif.cb_mon.TID, vif.cb_mon.TDEST);
-
-          pkt_beat_count = 0;
-          prev_tlast = 1;
+        obs_txns++;
+        // chk_id_constant (REQ_SLV_11)
+        if (obs_beats > 0) begin
+          if (vif.cb_mon.TID !== last_id || vif.cb_mon.TDEST !== last_dest)
+            `uvm_error("CHK/ID_CONSTANT", $sformatf(
+              "DUT changed TID/TDEST mid-packet (beat %0d) — Section 2.7", obs_beats))
         end else begin
-          prev_tlast = 0;
+          last_id = vif.cb_mon.TID; last_dest = vif.cb_mon.TDEST;
         end
+        pkt_beats++; obs_beats++;
 
-        // ── Sample remaining covergroups ──────────────────────────────────────
-        cg_twakeup_timing.sample();
-        cg_stream_interleaving_depth.sample();
-        cg_intra_packet_backpressure_position.sample();
-        cg_continuous_packets_violations.sample();
+        `uvm_info(get_type_name(), $sformatf(
+          "[TXN %0d] TDATA=0x%08h TKEEP=0b%04b TSTRB=0b%04b TLAST=%0b TID=0x%0h TDEST=0x%0h",
+          obs_txns, vif.cb_mon.TDATA, vif.cb_mon.TKEEP, vif.cb_mon.TSTRB, vif.cb_mon.TLAST,
+          vif.cb_mon.TID, vif.cb_mon.TDEST), UVM_HIGH)
 
-        // Reset tracking for next transfer
-        snap_valid         = 0;
-        tready_stall_depth = 0;
-        stall_beat_position = 0;
-        continuous_pkt_viol = 0;
-      end
-      else if (vif.cb_mon.TVALID !== 1'b1 && snap_valid) begin
-        // TVALID dropped without handshake — protocol violation
-        `uvm_fatal("MON_STAB", "TVALID_RETRACTION_VIOLATION: TVALID deasserted before TREADY!")
-      end
+        cov_stall=stall; cov_keep=vif.cb_mon.TKEEP; cov_strb=vif.cb_mon.TSTRB; cov_ready_mode=0;
+        cg_tready_profile.sample(); cg_dut_tvalid_stability.sample();
+        cg_dut_payload_stability.sample(); cg_byte_qualifiers.sample(); cg_parity.sample();
+        if (cfg.has_twakeup) cg_wakeup.sample();
+        trk_row("BEAT", obs_packets + 1, pkt_beats, stall, "");
 
-      // ── TWAKEUP check: must persist if simultaneous with TVALID ──────────────
-      if (cfg.has_wakeup && vif.cb_mon.TWAKEUP === 1'b1) begin
-        twakeup_seen = 1;
-        if (vif.cb_mon.TVALID === 1'b1 && vif.cb_mon.TREADY !== 1'b1) begin
-          // TWAKEUP must remain asserted — already checking by sampling it here
-          // Lead-time is negative if TWAKEUP=TVALID=1 on same cycle
+        valid_pending = 0;
+
+        // chk_packet_framing (REQ_SLV_07): runaway packet (no TLAST by the bound).
+        if (pkt_beats > cfg.max_packet_beats)
+          `uvm_error("CHK/PKT_FRAMING", $sformatf(
+            "Runaway packet: %0d beats accepted with no TLAST (bound %0d) — Section 2.6",
+            pkt_beats, cfg.max_packet_beats))
+
+        // TLAST: close the packet (REQ_SLV_07).
+        if (vif.cb_mon.TLAST === 1'b1) begin
+          obs_packets++;
+          cov_pkt_len=pkt_beats; cov_id=last_id; cov_dest=last_dest;
+          cov_gap_zero = (gap == 0);
+          cov_id_changed = have_last ? ((last_id!==cov_id)||(last_dest!==cov_dest)) : 1'b0;
+          cg_packet_length.sample(); cg_stream_recon.sample();
+          `uvm_info("MON", $sformatf(
+            "[PACKET %0d RECEIVED] beats=%0d TID=0x%0h TDEST=0x%0h gap=%0d",
+            obs_packets, pkt_beats, last_id, last_dest, gap), UVM_HIGH)
+          trk_row("PKT", obs_packets, pkt_beats, 0, "packet complete");
+          if (sb_h != null) sb_h.note_received(last_id, last_dest, pkt_beats);
+          have_last = 1; gap = 0;
+          new_packet_ctx(pkt_beats);
         end
       end
-    end // forever
+      else if (pkt_beats == 0 && have_last && vif.cb_mon.TVALID !== 1'b1) gap++;
+
+      if (valid_pending && vif.cb_mon.TVALID === 1'b1 && vif.cb_mon.TREADY !== 1'b1) stall++;
+      prev_valid = vif.cb_mon.TVALID;
+    end
   endtask
 
-  function void final_phase(uvm_phase phase);
-    `uvm_info("MON", $sformatf(
-      "[MON] FINAL: total_beats=%0d  pkts=%0d  null_pkts=%0d",
-      total_beats, pkt_count, null_count), UVM_NONE)
-    if (cfg.enable_tracker) $fclose(tracker_fd);
+  protected function void new_packet_ctx(ref int unsigned pkt_beats);
+    pkt_beats = 0; obs_beats = 0;
   endfunction
 
+  function int unsigned get_observed_packets(); return obs_packets; endfunction
+
 endclass
+
+`endif
