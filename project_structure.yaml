@@ -1,0 +1,29 @@
+# EDA Buddy project structure.
+# Every path is relative to THIS file's directory, so the checkout can live
+# anywhere. Sourcing ./env.sh (or ./env.ps1) points eda-buddy at this file.
+project_name: SMART_SOC_PROJECT
+
+paths:
+  root: ../run              # generated Makefile, filelists and logs
+  filelists: filelists      # relative to root
+  makefile: .               # relative to root (. = root itself)
+
+tools:
+  # make lives outside the repo, so it comes from $EDA_BUDDY_MAKE (set by env.sh)
+  # rather than being hardcoded here. Add `make:` only to override that.
+  simulator: questa
+
+hooks:
+  pre: ''
+  post: ''
+
+components:
+- name: axi_stream_master_vip
+  build_cfg: axi_stream_master_vip_tb/yamls/axi_stream_master_vip_build.yaml
+  runtime_cfg: axi_stream_master_vip_tb/yamls/axi_stream_master_vip_run.yaml
+- name: axi_stream_slave_vip
+  build_cfg: axi_stream_slave_vip_tb/yamls/axi_stream_slave_vip_build.yaml
+  runtime_cfg: axi_stream_slave_vip_tb/yamls/axi_stream_slave_vip_run.yaml
+- name: axi_stream_fifo
+  build_cfg: axi_stream_fifo/yamls/axi_stream_fifo_build.yaml
+  runtime_cfg: axi_stream_fifo/yamls/axi_stream_fifo_run.yaml

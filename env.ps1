@@ -3,15 +3,13 @@
 #
 # Override any value by setting it before dot-sourcing.
 
-$root = Split-Path -Parent $PSScriptRoot
-
 # Where pip put the eda-buddy command. Asked of Python because it differs
 # between a user install, a venv and a system install.
 $scripts = python -c "import sysconfig; print(sysconfig.get_path('scripts', 'nt_user'))"
 $env:PATH = "$scripts;$env:PATH"
 
 if (-not $env:EDA_BUDDY_MAKE)        { $env:EDA_BUDDY_MAKE = 'C:\cygwin64\bin\make.exe' }
-if (-not $env:EDA_BUDDY_PROJECT_CFG) { $env:EDA_BUDDY_PROJECT_CFG = Join-Path $root 'eda_buddy\project_structure.yaml' }
+if (-not $env:EDA_BUDDY_PROJECT_CFG) { $env:EDA_BUDDY_PROJECT_CFG = Join-Path $PSScriptRoot 'project_structure.yaml' }
 
-Remove-Variable root, scripts
+Remove-Variable scripts
 eda-buddy --version
