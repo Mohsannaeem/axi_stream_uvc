@@ -3,6 +3,15 @@
 #
 # Override any value by setting it before dot-sourcing.
 
+# Running this instead of dot-sourcing it sets PATH in a child scope that dies
+# immediately, so the session is left with nothing — while the version line
+# below still prints, making it look like it worked. Fail loudly instead.
+if ($MyInvocation.InvocationName -ne '.') {
+    Write-Host "[env] env.ps1 must be DOT-SOURCED, not run." -ForegroundColor Yellow
+    Write-Host "[env]   . .\env.ps1" -ForegroundColor Yellow
+    return
+}
+
 # Where pip installed eda-buddy.exe. Not on PATH by default on a Windows Store
 # Python. Override with EDA_BUDDY_BIN for a different interpreter or a venv.
 $bin = if ($env:EDA_BUDDY_BIN) { $env:EDA_BUDDY_BIN } else {

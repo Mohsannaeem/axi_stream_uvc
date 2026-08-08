@@ -4,6 +4,18 @@
 #
 # Override any value by exporting it before sourcing.
 
+# Executing this instead of sourcing it sets PATH in a child shell that exits
+# immediately, so the parent shell is left with nothing — and the version line
+# below still prints, making it look like it worked. Fail loudly instead.
+# This also catches `. .\env.sh` from PowerShell, which hands the file to bash
+# as a subprocess.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    echo "[env] env.sh must be SOURCED, not executed." >&2
+    echo "[env]   bash/Cygwin :  . ./env.sh" >&2
+    echo "[env]   PowerShell  :  . .\\env.ps1     (env.ps1, not env.sh)" >&2
+    exit 1
+fi
+
 _here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # Where pip installed eda-buddy.exe. Not on PATH by default on a Windows Store
