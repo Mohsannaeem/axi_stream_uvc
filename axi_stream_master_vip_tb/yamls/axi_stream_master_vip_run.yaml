@@ -223,9 +223,10 @@ groups:
     - axi_stream_master_vip_tc_mst_003_test
     - axi_stream_master_vip_tc_mst_004_test
     - axi_stream_master_vip_tc_mst_005_test
+    rms_id: AXI_STREAM_MST_SMOKE_REGRESSION
     hooks:
       pre: ''
-      post: python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_SMOKE --total {total} --passed {passed} --failed {failed}
+      post: ''
   full_regression:
     tests:
     - axi_stream_master_vip_base_test
@@ -277,9 +278,10 @@ groups:
     - axi_stream_master_vip_tc_mst_046_test
     - axi_stream_master_vip_tc_mst_047_test
     - axi_stream_master_vip_tc_mst_048_test
+    rms_id: AXI_MST_FULL_REGRESSION
     hooks:
       pre: ''
-      post: python D:\Verification\VERIFICATION_PLANNER\eda_buddy\scripts\push_result.py --id AXI_STREAM_MST_FULL_REGRESSION --total {total} --passed {passed} --failed {failed}
+      post: ''
 hooks:
   pre: ''
   post: ''
