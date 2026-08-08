@@ -13,8 +13,8 @@ runtime:
   debug:
     gui_mode: false
     dump_waves: true
-    wave_format: fsdb
-    quiet_sim: false
+    wave_format: wlf
+    quiet_sim: true
 test_config:
   active_test: axi_stream_master_vip_base_test
   entry_points:
