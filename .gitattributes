@@ -1,0 +1,8 @@
+# Shell scripts are sourced by bash (Git Bash on Windows, Cygwin on the CI
+# agent), which treats a trailing CR as part of the command itself — a checkout
+# with CRLF fails at the first line with `$'\r': command not found`.
+#
+# Git for Windows ships core.autocrlf=true in its system gitconfig, so a fresh
+# clone converts these to CRLF on every Windows machine unless told otherwise.
+# eol=lf overrides that per-path, independent of any user or system setting.
+*.sh text eol=lf
