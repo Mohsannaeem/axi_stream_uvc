@@ -2,7 +2,7 @@ runtime:
   common_args:
   - +UVM_VERBOSITY=UVM_HIGH
   - +UVM_MAX_QUIT_COUNT=10
-  #- +UVM_TIMEOUT=100000000
+  - +UVM_TIMEOUT=100000000
   - +TRACKER_DIR=$$RUN_DIR
   tool_args:
     vcs:
