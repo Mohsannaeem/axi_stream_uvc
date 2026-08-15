@@ -11,6 +11,13 @@ _info
 
 # Simulator run outputs
 sim/work/
+# Per-test and per-regression session dirs: tracker CSVs, sim.log, report.txt.
+# Written on every run, named with a timestamp, so they never stop accumulating.
+sim/*/run/
+sim/logs/
+
+# Editor / merge-tool leftovers
+*.bcl
 
 # Python cache
 __pycache__/
